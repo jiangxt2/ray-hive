@@ -1,0 +1,28 @@
+name: ray-hive-it
+
+services:
+  hiveserver2:
+    image: apache/hive:4.2.0
+    container_name: ray-hive-it-hiveserver2
+    environment:
+      SERVICE_NAME: hiveserver2
+      SERVICE_OPTS: >-
+        -Dhive.server2.authentication=NOSASL
+        -Dhive.server2.thrift.resultset.serialize.in.tasks=false
+        -Dhive.exec.mode.local.auto=true
+        -Dhive.execution.engine=mr
+    ports:
+      - "127.0.0.1:${RAY_HIVE_HS2_PORT:-10090}:10000"
+    volumes:
+      - ray-hive-warehouse:/opt/hive/data/warehouse
+      - ./setup.sql:/opt/hive/scripts/setup.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/10000'"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 30s
+
+volumes:
+  ray-hive-warehouse:
+    name: ray-hive-it-warehouse

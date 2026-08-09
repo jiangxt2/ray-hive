@@ -1,0 +1,12 @@
+{
+  "case_id": "HS2-PROTO-002",
+  "schema": [
+    {"name": "id", "arrow_type": "int32", "nullable": true, "hive_type": "INT"},
+    {"name": "label", "arrow_type": "string", "nullable": true, "hive_type": "STRING"}
+  ],
+  "rows": [
+    {"id": 1, "label": "a"},
+    {"id": null, "label": null},
+    {"id": 3, "label": "c"}
+  ]
+}

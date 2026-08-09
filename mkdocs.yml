@@ -1,0 +1,25 @@
+site_name: ray-hive
+site_description: HiveServer2 datasource for Ray Data
+repo_url: https://github.com/jiangxt2/ray-hive
+strict: true
+docs_dir: docs
+site_dir: site
+
+nav:
+  - Overview: index.md
+  - Architecture: architecture.md
+  - Compatibility: compatibility.md
+  - Consistency: consistency.md
+  - Errors: errors.md
+  - Security: security.md
+  - Conformance: conformance.md
+  - Decisions:
+      - Strict single query: adr/strict-single-query.md
+
+theme:
+  name: mkdocs
+
+validation:
+  links:
+    absolute_links: relative_to_docs
+    unrecognized_links: warn

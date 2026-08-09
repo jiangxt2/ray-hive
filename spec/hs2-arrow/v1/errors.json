@@ -1,0 +1,17 @@
+{
+  "$schema": "./schema/errors.schema.json",
+  "spec_version": "1.0.0",
+  "errors": [
+    {"code": "CONFIG", "category": "configuration", "retryable": false, "partial_output": false},
+    {"code": "AUTH", "category": "authentication", "retryable": false, "partial_output": false},
+    {"code": "PERMISSION", "category": "permission", "retryable": false, "partial_output": false},
+    {"code": "QUERY_COMPILE", "category": "planning", "retryable": false, "partial_output": false},
+    {"code": "QUERY_EXECUTION", "category": "query", "retryable": false, "partial_output": false},
+    {"code": "SCHEMA", "category": "schema", "retryable": false, "partial_output": false},
+    {"code": "PROTOCOL", "category": "protocol", "retryable": false, "partial_output": false},
+    {"code": "TRANSPORT_BEFORE_OUTPUT", "category": "transport", "retryable": true, "partial_output": false},
+    {"code": "TRANSPORT_AFTER_OUTPUT", "category": "transport", "retryable": false, "partial_output": true},
+    {"code": "CANCELLED", "category": "cancellation", "retryable": false, "partial_output": false},
+    {"code": "CLEANUP", "category": "cleanup", "retryable": false, "partial_output": false}
+  ]
+}

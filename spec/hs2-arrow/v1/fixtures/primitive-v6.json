@@ -1,0 +1,8 @@
+{
+  "case_id": "HS2-PROTO-002",
+  "encoding": "TColumn V6",
+  "columns": [
+    {"name": "id", "hive_type": "INT", "values": [1, 0, 3], "nulls_hex": "02"},
+    {"name": "label", "hive_type": "STRING", "values": ["a", "", "c"], "nulls_hex": "02"}
+  ]
+}

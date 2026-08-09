@@ -1,0 +1,30 @@
+name: Slow integration
+
+on:
+  schedule:
+    - cron: "17 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: slow-integration-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  current-core-evidence:
+    name: Current real-infrastructure evidence
+    uses: ./.github/workflows/hive-integration.yml
+
+  scope-notice:
+    name: Verify slow-suite scope remains explicit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Reject accidental production-ready claims
+        run: |
+          set -euo pipefail
+          ! grep -Eiq 'production[- ]ready|production Core status: supported' README.md
+          grep -Fq 'Production Core status requires' docs/conformance.md

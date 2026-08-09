@@ -1,0 +1,3 @@
+* text=auto eol=lf
+*.bat text eol=crlf
+src/ray_hive/_hs2/generated/idl/TCLIService.thrift -whitespace

@@ -1,0 +1,33 @@
+name: Feature request
+description: Propose a scoped datasource capability
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the user need independently of a proposed implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Proposed scope
+      description: Identify API, driver, transport, auth, type, consistency, and version boundaries.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Required conformance evidence
+      description: List real Hive, security, failure, or Ray cluster cases needed for the claim.
+    validations:
+      required: true
+  - type: checkboxes
+    id: purity
+    attributes:
+      label: Data-plane boundary
+      options:
+        - label: The proposal keeps all table and storage access behind HiveServer2.
+          required: true

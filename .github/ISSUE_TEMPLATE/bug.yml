@@ -1,0 +1,39 @@
+name: Bug report
+description: Report a reproducible ray-hive defect without sensitive data
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, full connection URLs, private SQL, or row values.
+  - type: input
+    id: version
+    attributes:
+      label: ray-hive version or commit
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include Python, Ray, PyArrow, Hive, driver, transport, and authentication mode.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Use sanitized identifiers and values.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Include stable error code and operation state, but no full SQL or secrets.

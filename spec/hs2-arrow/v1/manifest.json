@@ -1,0 +1,36 @@
+{
+  "$schema": "./schema/manifest.schema.json",
+  "spec_version": "1.0.0",
+  "schema_version": 1,
+  "hive_idl": {
+    "release_tag": "rel/release-4.2.0",
+    "commit": "cb06ad72d609e51b6a3a38ccb120e34b4281067c",
+    "path": "service-rpc/if/TCLIService.thrift",
+    "sha256": "0146013b0bf6f9d794364dac40d1537662708aa62c548548191eb5cd821c391b"
+  },
+  "cases": [
+    {"id": "HS2-PROTO-001", "profile": "core", "description": "Open, execute, status, metadata, multi-fetch, and close lifecycle"},
+    {"id": "HS2-PROTO-002", "profile": "core", "description": "V6 column vectors, NULL bitmap, empty batch, and EOF"},
+    {"id": "HS2-PROTO-003", "profile": "extended", "description": "V9 binaryColumns capability on and off"},
+    {"id": "HS2-PROTO-004", "profile": "core", "description": "CancelOperation and idempotent operation/session cleanup"},
+    {"id": "HS2-TABLE-001", "profile": "core", "description": "Internal Text, ORC, and Parquet tables"},
+    {"id": "HS2-TABLE-002", "profile": "core", "description": "External table locations inaccessible to the client"},
+    {"id": "HS2-TABLE-003", "profile": "core", "description": "Partitions, buckets, custom SerDe, and views"},
+    {"id": "HS2-ACID-001", "profile": "core", "description": "One query preserves one ACID snapshot across fetches"},
+    {"id": "HS2-ICEBERG-001", "profile": "core", "description": "Iceberg v1 and v2 Parquet/ORC including v2 deletes and updates"},
+    {"id": "HS2-TYPE-001", "profile": "core", "description": "Primitive values, NULL, empty results, and all-NULL columns"},
+    {"id": "HS2-TYPE-002", "profile": "core", "description": "Decimal, date, timestamp, character, binary, and fail-closed local timezone values"},
+    {"id": "HS2-TYPE-003", "profile": "extended", "description": "Nested array, map, struct, and unsupported types"},
+    {"id": "HS2-CONSISTENCY-001", "profile": "core", "description": "Strict and independent-query semantics remain distinct"},
+    {"id": "HS2-FAILURE-001", "profile": "core", "description": "Disconnect before first batch leaks no results"},
+    {"id": "HS2-FAILURE-002", "profile": "core", "description": "Midstream disconnect never resumes or replays"},
+    {"id": "HS2-FAILURE-003", "profile": "core", "description": "Timeout, cancellation, and cleanup RPC failure"},
+    {"id": "HS2-SECURITY-001", "profile": "core", "description": "Transport, TLS, authentication, and secret redaction matrix"},
+    {"id": "HS2-PURITY-001", "profile": "core", "description": "Driver and workers can reach approved HS2 but not storage or metastore endpoints"},
+    {"id": "HS2-PURITY-002", "profile": "core", "description": "Source and plans contain no file or metastore fallback"}
+  ],
+  "fixtures": [
+    {"path": "fixtures/primitive-v6.json", "sha256": "892293eb9c339a00c07487f698903a8cf5e1f701bb830268ffbfcdcc594b2e7a"},
+    {"path": "expected/primitive-v6.json", "sha256": "8fea937801b9734ac9d7e4c4a6d59b4d4691af75155b0f7538d2f572f8487cf7"}
+  ]
+}

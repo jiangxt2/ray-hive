@@ -1,0 +1,101 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ray-hive"
+version = "0.1.0a1"
+description = "A HiveServer2 datasource for Ray Data"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+license = { text = "Apache-2.0" }
+authors = [{ name = "ray-hive contributors" }]
+keywords = ["apache-hive", "hiveserver2", "ray", "arrow"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Typing :: Typed",
+]
+dependencies = [
+  "pyarrow==19.0.1",
+  "ray[data]==2.55.1",
+  "thrift==0.16.0",
+  "typing-extensions>=4.12,<5",
+]
+
+[project.optional-dependencies]
+telemetry = ["opentelemetry-api>=1.29,<2"]
+dev = [
+  "build>=1.2,<2",
+  "codespell>=2.4,<3",
+  "coverage[toml]>=7.6,<8",
+  "jsonschema>=4.23,<5",
+  "mypy>=1.15,<2",
+  "mkdocs>=1.6,<2",
+  "pre-commit>=4.1,<5",
+  "pyarrow-stubs==19.4",
+  "pytest>=8.3,<9",
+  "pytest-cov>=6,<7",
+  "pytest-timeout>=2.3,<3",
+  "ruff>=0.11,<0.12",
+  "twine>=6.1,<7",
+]
+
+[project.urls]
+Documentation = "https://github.com/jiangxt2/ray-hive#readme"
+Issues = "https://github.com/jiangxt2/ray-hive/issues"
+Source = "https://github.com/jiangxt2/ray-hive"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ray_hive"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers"
+testpaths = ["tests"]
+markers = [
+  "contract: protocol contract tests that do not require a real Hive deployment",
+  "integration: tests that require the ray-hive-it infrastructure",
+  "slow_integration: extended compatibility and failure-injection tests",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["ray_hive"]
+omit = ["src/ray_hive/_hs2/generated/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 90
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = ["src/ray_hive/_hs2/generated/TCLIService"]
+
+[tool.ruff.lint]
+select = ["A", "ASYNC", "B", "C4", "E", "F", "I", "N", "PERF", "PIE", "PT", "RUF", "S", "SIM", "UP", "W"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S105", "S106"]
+"tests/contract/test_native_protocol_contract.py" = ["N802"]
+"tests/unit/test_client_transport_edges.py" = ["N802"]
+"tests/unit/test_setup_hive_it.py" = ["N802"]
+"src/ray_hive/_hs2/generated/**/*.py" = ["ALL"]
+"scripts/generate_thrift_stubs.py" = ["S603"]
+"src/ray_hive/_planner.py" = ["S608"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["ray_hive"]
+exclude = ["src/ray_hive/_hs2/generated/"]
+untyped_calls_exclude = ["ray"]
+
+[tool.codespell]
+skip = "*.json,*.lock,./dist/**,./site/**,./src/ray_hive/_hs2/generated/**"
+ignore-words-list = "notin"

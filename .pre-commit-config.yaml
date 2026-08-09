@@ -1,0 +1,38 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: Ruff format
+        entry: .venv/bin/ruff format --check .
+        language: system
+        pass_filenames: false
+      - id: ruff-check
+        name: Ruff lint
+        entry: .venv/bin/ruff check .
+        language: system
+        pass_filenames: false
+      - id: mypy
+        name: mypy
+        entry: .venv/bin/mypy
+        language: system
+        pass_filenames: false
+      - id: license-headers
+        name: License headers
+        entry: .venv/bin/python scripts/check_license_headers.py
+        language: system
+        pass_filenames: false
+      - id: conformance-spec
+        name: Conformance spec
+        entry: .venv/bin/python scripts/check_spec.py
+        language: system
+        pass_filenames: false
+      - id: docs
+        name: Documentation
+        entry: .venv/bin/mkdocs build --strict
+        language: system
+        pass_filenames: false
+      - id: codespell
+        name: Codespell
+        entry: .venv/bin/codespell
+        language: system
+        pass_filenames: false

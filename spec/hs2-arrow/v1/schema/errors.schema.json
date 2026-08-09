@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["spec_version", "errors"],
+  "additionalProperties": true,
+  "properties": {
+    "spec_version": {"const": "1.0.0"},
+    "errors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["code", "category", "retryable", "partial_output"],
+        "additionalProperties": false,
+        "properties": {
+          "code": {"type": "string", "minLength": 1},
+          "category": {"type": "string", "minLength": 1},
+          "retryable": {"type": "boolean"},
+          "partial_output": {"type": "boolean"}
+        }
+      }
+    }
+  }
+}

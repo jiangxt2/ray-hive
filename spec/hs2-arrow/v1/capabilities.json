@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "spec_version": "1.0.0",
+  "states": ["supported", "unsupported", "unknown"],
+  "capabilities": [
+    {"id": "protocol_v6_columnar", "profile": "core", "evidence": "OpenSession protocol"},
+    {"id": "cancel_operation", "profile": "core", "evidence": "TCLIService method and IT"},
+    {"id": "strict_single_query", "profile": "core", "evidence": "query audit"},
+    {"id": "ray_task_no_retry", "profile": "core", "evidence": "Ray runtime plan"},
+    {"id": "hs2_clients_no_storage", "profile": "core", "evidence": "network denial audit"},
+    {"id": "protocol_v9_binary_columns", "profile": "extended", "evidence": "versioned IT"},
+    {"id": "operation_log", "profile": "extended", "evidence": "explicit probe"},
+    {"id": "independent_queries", "profile": "experimental", "evidence": "query audit"}
+  ]
+}
