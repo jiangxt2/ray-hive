@@ -88,7 +88,7 @@ jobs:
       - run: uv sync --frozen --extra dev --extra telemetry
       - name: Run collected unit and contract gates
         run: >-
-          uv run --frozen pytest tests/unit tests/contract
+          uv run --frozen python -m pytest tests/unit tests/contract
           --cov=ray_hive --cov-report=term-missing --cov-report=xml
 
   thrift-codegen:

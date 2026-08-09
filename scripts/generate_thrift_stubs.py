@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import filecmp
 import hashlib
+import os
 import shutil
 import subprocess
 import tempfile
@@ -55,6 +56,8 @@ def _generate(output: Path) -> Path:
             "docker",
             "run",
             "--rm",
+            "--user",
+            f"{os.getuid()}:{os.getgid()}",
             "-v",
             f"{IDL}:/idl/TCLIService.thrift:ro",
             "-v",
