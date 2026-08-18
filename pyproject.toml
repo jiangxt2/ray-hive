@@ -4,11 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ray-hive"
-version = "0.1.0a1"
+version = "1.0"
 description = "A HiveServer2 datasource for Ray Data"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "ray-hive contributors" }]
 keywords = ["apache-hive", "hiveserver2", "ray", "arrow"]
 classifiers = [
@@ -41,7 +42,7 @@ dev = [
   "pytest-cov>=6,<7",
   "pytest-timeout>=2.3,<3",
   "ruff>=0.11,<0.12",
-  "twine>=6.1,<7",
+  "twine>=7,<8",
 ]
 
 [project.urls]

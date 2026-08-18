@@ -1,8 +1,42 @@
+# Copyright 2026 ray-hive contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: "Commit SHA to validate; required for a manual run"
+        required: true
+        type: string
+      expected_version:
+        description: "Expected project version, for example 1.0"
+        required: true
+        type: string
+      formal_publish:
+        description: "Publish to TestPyPI, PyPI, and GitHub Releases"
+        required: true
+        default: false
+        type: boolean
+      release_tag:
+        description: "Existing annotated tag to publish, for example v1.0"
+        required: true
+        default: "v1.0"
+        type: string
 
 permissions:
   contents: read
@@ -12,67 +46,300 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  quality:
-    name: Reuse complete quality gates
+  candidate:
+    name: Validate release candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      mode: ${{ steps.validate.outputs.mode }}
+      sha: ${{ steps.validate.outputs.sha }}
+      version: ${{ steps.validate.outputs.version }}
+      tag: ${{ steps.validate.outputs.tag }}
+      master_sha: ${{ steps.validate.outputs.master_sha }}
+    steps:
+      - name: Check out protected master and tags
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: master
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Validate candidate ancestry, identity, and tag event
+        id: validate
+        env:
+          MODE: ${{ (github.event_name == 'push' || inputs.formal_publish == true) && 'tag' || 'dry-run' }}
+          CANDIDATE_REF: ${{ github.event_name == 'push' && github.sha || inputs.candidate_sha }}
+          EXPECTED_VERSION: ${{ github.event_name == 'push' && '' || inputs.expected_version }}
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+          EVENT_SHA: ${{ github.event_name == 'push' && github.sha || inputs.candidate_sha }}
+          EVENT_CREATED: ${{ github.event_name == 'push' && github.event.created || inputs.formal_publish }}
+          EVENT_DELETED: ${{ github.event_name == 'push' && github.event.deleted || 'false' }}
+          EVENT_FORCED: ${{ github.event_name == 'push' && github.event.forced || 'false' }}
+        run: >-
+          python scripts/validate_release_candidate.py
+          --mode "${MODE}"
+          --candidate-ref "${CANDIDATE_REF}"
+          --expected-version "${EXPECTED_VERSION}"
+          --tag "${RELEASE_TAG}"
+          --event-sha "${EVENT_SHA}"
+          --event-created "${EVENT_CREATED}"
+          --event-deleted "${EVENT_DELETED}"
+          --event-forced "${EVENT_FORCED}"
+          --github-output "${GITHUB_OUTPUT}"
+
+  gates:
+    name: Run complete CI gates on candidate
+    needs: candidate
     uses: ./.github/workflows/ci.yml
+    with:
+      candidate_sha: ${{ needs.candidate.outputs.sha }}
 
   hive:
-    name: Reuse real Hive gate
+    name: Run real Hive gate on candidate
+    needs: candidate
     uses: ./.github/workflows/hive-integration.yml
+    with:
+      candidate_sha: ${{ needs.candidate.outputs.sha }}
 
-  publish:
-    name: Build, attest, and publish immutable artifacts
-    needs: [quality, hive]
+  build:
+    name: Build and attest one immutable artifact
+    needs: [candidate, gates, hive]
+    if: needs.candidate.result == 'success' && needs.gates.result == 'success' && needs.hive.result == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    environment: pypi
+    timeout-minutes: 30
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
     permissions:
-      contents: write
+      contents: read
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Check out candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ needs.candidate.outputs.sha }}
           fetch-depth: 0
+          persist-credentials: false
       - name: Install uv and Python
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           version: "0.12.0"
           python-version: "3.12"
+          enable-cache: true
       - run: uv sync --frozen --extra dev --extra telemetry
-      - name: Validate release identity and credential scan
-        run: uv run --frozen python scripts/check_release.py --tag "${GITHUB_REF_NAME}"
+      - name: Verify release identity and credential scan
+        run: uv run --frozen python scripts/check_release.py --tag "${{ needs.candidate.outputs.tag }}"
       - run: uv run --frozen python scripts/check_spec.py
-      - run: uv run --frozen python -m build
-      - run: uv run --frozen twine check dist/*
-      - name: Verify default and telemetry installations
-        run: |
-          uv venv /tmp/ray-hive-release-default --python 3.12
-          uv pip install --python /tmp/ray-hive-release-default/bin/python dist/*.whl
-          /tmp/ray-hive-release-default/bin/python -c 'import ray_hive'
-          uv venv /tmp/ray-hive-release-telemetry --python 3.12
-          uv pip install --python /tmp/ray-hive-release-telemetry/bin/python "ray-hive[telemetry] @ file://$(realpath dist/*.whl)"
-          /tmp/ray-hive-release-telemetry/bin/python -c 'import ray_hive; import opentelemetry'
+      - name: Build distributions
+        run: uv run --frozen python -m build --outdir release-artifacts/packages
+      - name: Check distribution metadata
+        run: uv run --frozen twine check release-artifacts/packages/*
+      - name: Generate SHA-256 manifest
+        run: >-
+          uv run --frozen python scripts/verify_release_artifacts.py
+          release-artifacts/packages
+          --name ray-hive
+          --version "${{ needs.candidate.outputs.version }}"
+          --manifest release-artifacts/SHA256SUMS
+          --prepare
       - name: Generate SPDX JSON SBOM
         uses: anchore/sbom-action@a930d0ac434e3182448fe678398ba5713717112a # v0.21.0
         with:
           path: .
           format: spdx-json
-          output-file: dist/ray-hive.spdx.json
+          output-file: release-artifacts/ray-hive.spdx.json
           upload-artifact: false
       - name: Attest release artifacts
         uses: actions/attest-build-provenance@8beda2b7ed98355c0e97c0a63bec38ae472e66c4 # v4
         with:
-          subject-path: "dist/*"
-      - name: Stage only Python distributions for PyPI
-        run: |
-          mkdir pypi-dist
-          cp dist/*.whl dist/*.tar.gz pypi-dist/
-      - name: Publish to PyPI with trusted publishing
-        uses: pypa/gh-action-pypi-publish@106e0b0b7c337fa67ed433972f777c6357f78598 # v1.13.0
+          subject-path: release-artifacts/packages/*
+      - name: Upload immutable release bundle
+        id: upload
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
-          packages-dir: pypi-dist/
-      - name: Create immutable GitHub release
+          name: release-bundle
+          path: release-artifacts/
+          if-no-files-found: error
+          retention-days: 14
+
+  install-smoke:
+    name: Install ${{ matrix.artifact }} / ${{ matrix.profile }} / Python ${{ matrix.python }}
+    needs: [candidate, build]
+    if: needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+        artifact: [wheel, sdist]
+        profile: [base, telemetry]
+    steps:
+      - name: Download exact release bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          path: release
+          merge-multiple: true
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install exact distribution
+        env:
+          PROFILE: ${{ matrix.profile }}
+          ARTIFACT: ${{ matrix.artifact }}
+        run: |
+          set -euo pipefail
+          if [[ "${ARTIFACT}" == "wheel" ]]; then
+            package="$(find release/packages -maxdepth 1 -name '*.whl' -print -quit)"
+          else
+            package="$(find release/packages -maxdepth 1 -name '*.tar.gz' -print -quit)"
+          fi
+          [[ -n "${package}" ]]
+          python -m venv smoke-venv
+          smoke-venv/bin/python -m pip install --upgrade pip
+          if [[ "${PROFILE}" == "base" ]]; then
+            requirement="ray-hive @ file://$(realpath "${package}")"
+          else
+            requirement="ray-hive[${PROFILE}] @ file://$(realpath "${package}")"
+          fi
+          smoke-venv/bin/python -m pip install "${requirement}"
+          smoke-venv/bin/python -c 'import ray_hive; print(ray_hive.__all__)'
+
+  testpypi-publish:
+    name: Publish the formal artifact to TestPyPI
+    needs: [candidate, build, install-smoke]
+    if: needs.candidate.outputs.mode == 'tag' && needs.build.result == 'success' && needs.install-smoke.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: testpypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out candidate release notes
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.candidate.outputs.sha }}
+          persist-credentials: false
+      - name: Download exact release bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          path: release
+          merge-multiple: true
+      - name: Verify tag and artifact manifest
+        run: |
+          python scripts/verify_release_tag.py \
+            --tag "${{ needs.candidate.outputs.tag }}" \
+            --expected-sha "${{ needs.candidate.outputs.sha }}"
+          python scripts/verify_release_artifacts.py release/packages \
+            --name ray-hive \
+            --version "${{ needs.candidate.outputs.version }}" \
+            --manifest release/SHA256SUMS
+      - name: Publish to TestPyPI with trusted publishing
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: release/packages/
+
+  testpypi-smoke:
+    name: TestPyPI install / ${{ matrix.profile }} / Python ${{ matrix.python }}
+    needs: [candidate, testpypi-publish]
+    if: needs.testpypi-publish.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+        profile: [base, telemetry]
+    steps:
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install published package from TestPyPI
+        env:
+          PROFILE: ${{ matrix.profile }}
+          VERSION: ${{ needs.candidate.outputs.version }}
+        run: |
+          set -euo pipefail
+          python -m venv smoke-venv
+          smoke-venv/bin/python -m pip install --upgrade pip
+          if [[ "${PROFILE}" == "base" ]]; then
+            requirement="ray-hive==${VERSION}"
+          else
+            requirement="ray-hive[${PROFILE}]==${VERSION}"
+          fi
+          for attempt in 1 2 3 4 5; do
+            if smoke-venv/bin/python -m pip install --no-cache-dir \
+              --index-url https://test.pypi.org/simple/ \
+              --extra-index-url https://pypi.org/simple/ "${requirement}"; then
+              break
+            fi
+            [[ "${attempt}" -lt 5 ]] || exit 1
+            sleep 15
+          done
+          smoke-venv/bin/python -c 'import ray_hive; print(ray_hive.__all__)'
+
+  publish:
+    name: Publish the same artifact to PyPI
+    needs: [candidate, build, testpypi-smoke]
+    if: needs.testpypi-smoke.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download exact release bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          path: release
+          merge-multiple: true
+      - name: Publish to PyPI with trusted publishing
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: release/packages/
+
+  github-release:
+    name: Create the immutable GitHub Release
+    needs: [candidate, build, publish]
+    if: needs.publish.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: github-release
+    permissions:
+      contents: write
+    steps:
+      - name: Check out release notes
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.candidate.outputs.sha }}
+          persist-credentials: false
+      - name: Download exact release bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          path: release
+          merge-multiple: true
+      - name: Verify artifact manifest before release
+        run: >-
+          python scripts/verify_release_artifacts.py release/packages
+          --name ray-hive
+          --version "${{ needs.candidate.outputs.version }}"
+          --manifest release/SHA256SUMS
+      - name: Create immutable GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" dist/* --verify-tag --generate-notes
+        run: >-
+          gh release create "${{ needs.candidate.outputs.tag }}"
+          release/packages/* release/SHA256SUMS release/ray-hive.spdx.json
+          --verify-tag
+          --title "ray-hive ${{ needs.candidate.outputs.tag }}"
+          --notes-file "release-notes/v${{ needs.candidate.outputs.version }}.md"

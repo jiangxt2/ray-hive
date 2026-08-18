@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## 1.0
+
 - Establish the independent Apache-2.0 project and narrow compatibility baseline.
 - Add immutable public configuration, endpoint-bound credential references, safe predicates, and
   stable error contracts.
