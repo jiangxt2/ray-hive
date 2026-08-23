@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import inspect
+import re
 from collections.abc import Callable, Iterable, Mapping
 from importlib.metadata import version
 from typing import Any
@@ -25,8 +26,11 @@ import pyarrow as pa
 
 from ray_hive._errors import HiveCompatibilityError
 
-SUPPORTED_RAY_VERSION = "2.55.1"
+SUPPORTED_RAY_RANGE = ">=2.55.1,<2.57"
 SUPPORTED_PYARROW_VERSION = "19.0.1"
+_MIN_RAY_VERSION = (2, 55, 1)
+_MAX_RAY_VERSION = (2, 57, 0)
+_FINAL_RAY_RELEASE = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:\+[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*)?$")
 _READ_TASK_PARAMETERS = ("self", "read_fn", "metadata", "schema", "per_task_row_limit")
 _GET_READ_TASKS_PARAMETERS = (
     "self",
@@ -39,9 +43,12 @@ _GET_READ_TASKS_PARAMETERS = (
 def validate_runtime() -> None:
     """Fail closed unless the exact tested Ray/PyArrow contracts are installed."""
 
-    if version("ray") != SUPPORTED_RAY_VERSION:
+    installed_ray = version("ray")
+    match = _FINAL_RAY_RELEASE.fullmatch(installed_ray)
+    release = tuple(int(part) for part in match.groups()) if match is not None else ()
+    if not _MIN_RAY_VERSION <= release < _MAX_RAY_VERSION:
         raise HiveCompatibilityError(
-            f"ray-hive requires Ray {SUPPORTED_RAY_VERSION} in the initial release"
+            f"ray-hive requires final Ray releases {SUPPORTED_RAY_RANGE}; found {installed_ray!r}"
         )
     if pa.__version__ != SUPPORTED_PYARROW_VERSION:
         raise HiveCompatibilityError(

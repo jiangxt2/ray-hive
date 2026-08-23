@@ -420,7 +420,7 @@ def test_native_transport_rejects_unverified_thrift_version_before_dns(
 
     monkeypatch.setattr(transport_module.socket, "getaddrinfo", unexpected_resolution)
 
-    with pytest.raises(HiveCompatibilityError, match="requires Thrift 0.16.0"):
+    with pytest.raises(HiveCompatibilityError, match=r"requires Thrift 0\.16\.0"):
         transport_module.open_native_transport(HiveConnectionOptions(host="hs2.example"))
 
 
@@ -572,7 +572,7 @@ def test_native_transport_preserves_connection_deadline_error_after_cleanup(
 
     with pytest.raises(
         HiveTransportError,
-        match="^HiveServer2 connection deadline expired",
+        match=r"^HiveServer2 connection deadline expired",
     ) as caught:
         transport_module.open_native_transport(
             HiveConnectionOptions(host="hs2.example", connect_timeout=1.0)

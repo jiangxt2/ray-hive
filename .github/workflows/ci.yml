@@ -84,13 +84,21 @@ jobs:
       - run: uv run --frozen mkdocs build --strict
 
   unit-contract:
-    name: Unit and contract (Python ${{ matrix.python-version }})
+    name: Unit and contract (Python ${{ matrix.python-version }} / Ray ${{ matrix.ray-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13"]
+        include:
+          - python-version: "3.12"
+            ray-version: "2.55.1"
+          - python-version: "3.12"
+            ray-version: "2.56.1"
+          - python-version: "3.13"
+            ray-version: "2.55.1"
+          - python-version: "3.13"
+            ray-version: "2.56.1"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -101,11 +109,22 @@ jobs:
           version: "0.12.0"
           python-version: ${{ matrix.python-version }}
           enable-cache: true
-          cache-suffix: py${{ matrix.python-version }}
-      - run: uv sync --frozen --extra dev --extra telemetry
+          cache-suffix: py${{ matrix.python-version }}-ray${{ matrix.ray-version }}
+      - run: uv venv --python ${{ matrix.python-version }}
+      - run: >-
+          uv pip install -e ".[dev,telemetry]"
+          "ray[data]==${{ matrix.ray-version }}"
+          "pyarrow==19.0.1"
+      - name: Show resolved runtime versions
+        run: >-
+          .venv/bin/python -c
+          "from importlib.metadata import version;
+          print('ray=' + version('ray'));
+          print('pyarrow=' + version('pyarrow'));
+          print('thrift=' + version('thrift'))"
       - name: Run collected unit and contract gates
         run: >-
-          uv run --frozen python -m pytest tests/unit tests/contract
+          .venv/bin/python -m pytest tests/unit tests/contract
           --cov=ray_hive --cov-report=term-missing --cov-report=xml
 
   thrift-codegen:

@@ -1,0 +1,57 @@
+# Copyright 2026 ray-hive contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Ray cluster integration
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      candidate_sha:
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ray-cluster-it-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ray-2561-cluster:
+    name: Ray 2.56.1 multi-node cluster
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+          persist-credentials: false
+      - name: Run exact Ray cluster infrastructure
+        env:
+          RAY_HIVE_RAY_SOURCE_IMAGE: rayproject/ray@sha256:56a97670c40913b7169c2b6e63be2e40c6724fcbb8fb85ce2a4040a4b5238492
+          RAY_HIVE_HIVE_SOURCE_IMAGE: apache/hive@sha256:b0d2842722567a89ac35da8af9002b6bba0fc2d0eb272664954a1fa46d694472
+        run: ./scripts/run_ray_cluster_it.sh
+      - name: Preserve cluster logs
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: ray-2561-cluster-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .artifacts/it/ray-cluster/
+          if-no-files-found: error
+          retention-days: 14

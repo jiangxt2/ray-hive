@@ -15,7 +15,7 @@ Ray `Dataset.limit()` remains a Ray-side row limit. The datasource passes Ray's
 `per_task_row_limit` to `ReadTask`; it does not translate that optimizer hint into Hive `LIMIT`.
 `HiveReadOptions.limit` is part of the source query and has different semantics.
 
-Ray expression predicate pushdown is disabled in V1 because Ray 2.55.1 cannot return a partially
+Ray expression predicate pushdown is disabled in V1 because the supported Ray releases cannot return a partially
 accepted predicate plus a residual. `HiveReadOptions.filter` uses ray-hive's complete typed
 predicate tree and is compiled entirely into the source statement. A later `Dataset.filter()`
 remains above the read.

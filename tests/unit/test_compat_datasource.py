@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+from importlib.metadata import requires
 from typing import Any
 
 import pyarrow as pa
@@ -47,8 +48,42 @@ def _spec() -> HiveTaskSpec:
     )
 
 
-def test_exact_runtime_contract_is_supported() -> None:
+def test_supported_runtime_contract_is_supported() -> None:
     validate_runtime()
+
+
+@pytest.mark.parametrize(
+    "ray_version",
+    ["2.55.1", "2.55.9", "2.56.0", "2.56.1+vendor.1"],
+)
+def test_supported_ray_version_window(monkeypatch: pytest.MonkeyPatch, ray_version: str) -> None:
+    monkeypatch.setattr(compat_module, "version", lambda package: ray_version)
+    compat_module.validate_runtime()
+
+
+@pytest.mark.parametrize(
+    "ray_version",
+    [
+        "2.55.0",
+        "2.55.1rc1",
+        "2.56.1.dev0",
+        "2.56.1.post1",
+        "2.57.0",
+        "3.0.0",
+        "unknown",
+    ],
+)
+def test_unsupported_ray_version_fails_closed(
+    monkeypatch: pytest.MonkeyPatch, ray_version: str
+) -> None:
+    monkeypatch.setattr(compat_module, "version", lambda package: ray_version)
+    with pytest.raises(HiveCompatibilityError, match=r">=2\.55\.1,<2\.57"):
+        compat_module.validate_runtime()
+
+
+def test_distribution_metadata_bounds_supported_ray_window() -> None:
+    package_requirements = requires("ray-hive") or []
+    assert "ray[data]<2.57,>=2.55.1" in package_requirements
 
 
 def test_read_task_yields_multiple_blocks_and_applies_ray_side_limit() -> None:
@@ -158,7 +193,7 @@ def test_runtime_and_read_signature_mismatches_fail_closed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(compat_module, "version", lambda package: "0")
-    with pytest.raises(HiveCompatibilityError, match="requires Ray"):
+    with pytest.raises(HiveCompatibilityError, match="requires final Ray releases"):
         compat_module.validate_runtime()
 
     monkeypatch.setattr(compat_module, "validate_runtime", lambda: None)

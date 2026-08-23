@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+- Expand the verified Ray Data compatibility window to final releases `>=2.55.1,<2.57`.
+
 ## 1.0
 
 - Establish the independent Apache-2.0 project and narrow compatibility baseline.

@@ -104,10 +104,17 @@ jobs:
     with:
       candidate_sha: ${{ needs.candidate.outputs.sha }}
 
+  ray-cluster:
+    name: Run Ray cluster gate on candidate
+    needs: candidate
+    uses: ./.github/workflows/ray-cluster-integration.yml
+    with:
+      candidate_sha: ${{ needs.candidate.outputs.sha }}
+
   build:
     name: Build and attest one immutable artifact
-    needs: [candidate, gates, hive]
-    if: needs.candidate.result == 'success' && needs.gates.result == 'success' && needs.hive.result == 'success'
+    needs: [candidate, gates, hive, ray-cluster]
+    if: needs.candidate.result == 'success' && needs.gates.result == 'success' && needs.hive.result == 'success' && needs.ray-cluster.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:

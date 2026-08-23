@@ -2,7 +2,7 @@ name: ray-hive-it
 
 services:
   hiveserver2:
-    image: apache/hive:4.2.0
+    image: ${RAY_HIVE_IT_HIVE_IMAGE:-apache/hive@sha256:b0d2842722567a89ac35da8af9002b6bba0fc2d0eb272664954a1fa46d694472}
     container_name: ray-hive-it-hiveserver2
     environment:
       SERVICE_NAME: hiveserver2

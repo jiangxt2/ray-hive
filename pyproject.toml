@@ -22,7 +22,7 @@ classifiers = [
 ]
 dependencies = [
   "pyarrow==19.0.1",
-  "ray[data]==2.55.1",
+  "ray[data]>=2.55.1,<2.57",
   "thrift==0.16.0",
   "typing-extensions>=4.12,<5",
 ]
@@ -30,18 +30,18 @@ dependencies = [
 [project.optional-dependencies]
 telemetry = ["opentelemetry-api>=1.29,<2"]
 dev = [
-  "build>=1.2,<2",
+  "build>=1.2.2,<2",
   "codespell>=2.4,<3",
   "coverage[toml]>=7.6,<8",
   "jsonschema>=4.23,<5",
-  "mypy>=1.15,<2",
+  "mypy>=1.17,<2",
   "mkdocs>=1.6,<2",
-  "pre-commit>=4.1,<5",
+  "pre-commit>=4.2,<5",
   "pyarrow-stubs==19.4",
-  "pytest>=8.3,<9",
-  "pytest-cov>=6,<7",
+  "pytest>=8.3,<10",
+  "pytest-cov>=6,<8",
   "pytest-timeout>=2.3,<3",
-  "ruff>=0.11,<0.12",
+  "ruff>=0.12.8,<1",
   "twine>=7,<8",
 ]
 
@@ -53,12 +53,16 @@ Source = "https://github.com/jiangxt2/ray-hive"
 [tool.hatch.build.targets.wheel]
 packages = ["src/ray_hive"]
 
+[tool.hatch.build.targets.sdist]
+exclude = ["/.artifacts", "/.venv*", "/dist", "/site"]
+
 [tool.pytest.ini_options]
 addopts = "--strict-config --strict-markers"
 testpaths = ["tests"]
 markers = [
   "contract: protocol contract tests that do not require a real Hive deployment",
   "integration: tests that require the ray-hive-it infrastructure",
+  "cluster: tests that require the ray-hive multi-node Ray cluster infrastructure",
   "slow_integration: extended compatibility and failure-injection tests",
 ]
 

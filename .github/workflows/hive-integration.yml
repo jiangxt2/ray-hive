@@ -34,7 +34,16 @@ jobs:
           python-version: "3.12"
           enable-cache: true
       - run: uv sync --frozen --extra dev --extra telemetry
+      - name: Show resolved runtime versions
+        run: >-
+          uv run --frozen python -c
+          "from importlib.metadata import version;
+          print('ray=' + version('ray'));
+          print('pyarrow=' + version('pyarrow'));
+          print('thrift=' + version('thrift'))"
       - name: Run exact ray-hive-it infrastructure
+        env:
+          RAY_HIVE_IT_HIVE_IMAGE: apache/hive@sha256:b0d2842722567a89ac35da8af9002b6bba0fc2d0eb272664954a1fa46d694472
         run: ./scripts/run_hive_it.sh
       - name: Preserve Hive logs
         if: always()

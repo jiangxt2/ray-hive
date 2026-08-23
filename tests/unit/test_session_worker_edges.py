@@ -61,7 +61,7 @@ def _schema() -> HiveResultSchema:
 def _spec(
     connection: HiveConnectionOptions | None = None,
     *,
-    expected_hive_schema: HiveResultSchema | None | object = ...,
+    expected_hive_schema: HiveResultSchema | object | None = ...,
     arrow_schema: pa.Schema | None = None,
 ) -> HiveTaskSpec:
     schema = _schema()

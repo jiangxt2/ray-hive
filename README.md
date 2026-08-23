@@ -5,8 +5,8 @@ table-format, storage, authorization, and query execution. Ray workers receive A
 through the HS2 endpoint; they do not read HDFS, object storage, table manifests, or the Hive
 Metastore.
 
-The project is currently Alpha. The initial compatibility target is Python 3.12/3.13, Ray 2.55.1,
-PyArrow 19.0.1, and Apache Hive 4.2.0. Production Core status will not be claimed until the real
+The project is currently Alpha. The compatibility target is Python 3.12/3.13, final Ray releases
+`>=2.55.1,<2.57`, PyArrow 19.0.1, and Apache Hive 4.2.0. Production Core status will not be claimed until the real
 Hive, security, network-purity, cancellation, and Ray cluster conformance suites pass.
 
 ## Install
@@ -79,7 +79,7 @@ typed split predicates and uses multiple independent Hive snapshots; it is not e
 strict mode and rejects a global source limit.
 
 Ray `Dataset.filter()` remains a Ray-side filter in V1. The connector intentionally declines Ray
-predicate pushdown because Ray 2.55.1 has no partial-residual contract. Explicit
+predicate pushdown because the supported Ray releases have no partial-residual contract. Explicit
 `HiveReadOptions.filter` predicates are validated as a complete expression and pushed into Hive.
 
 ## Security boundaries

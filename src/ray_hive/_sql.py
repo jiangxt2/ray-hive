@@ -24,7 +24,7 @@ from decimal import Decimal
 
 from ray_hive._errors import HivePlanningError
 
-type HiveLiteral = None | bool | int | float | Decimal | str | bytes | date | datetime
+type HiveLiteral = bool | int | float | Decimal | str | bytes | date | datetime | None
 
 
 def quote_identifier(identifier: str) -> str:
