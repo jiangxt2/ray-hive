@@ -23,7 +23,7 @@ classifiers = [
 dependencies = [
   "pyarrow==19.0.1",
   "ray[data]>=2.55.1,<2.57",
-  "thrift==0.16.0",
+  "thrift==0.22.0",
   "typing-extensions>=4.12,<5",
 ]
 

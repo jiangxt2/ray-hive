@@ -40,7 +40,7 @@ TSocket: Any = import_module("thrift.transport.TSocket")
 TTransport: Any = import_module("thrift.transport.TTransport")
 
 _DNS_RESOLUTION_SLOT = threading.BoundedSemaphore(value=1)
-_SUPPORTED_THRIFT_VERSION = "0.16.0"
+_SUPPORTED_THRIFT_VERSION = "0.22.0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -210,7 +210,7 @@ def _install_connect_deadline(
         )
         return open_socket(family, socket_type)
 
-    # Thrift 0.16 invokes these instance hooks from TSocket.open(). Supplying
+    # Thrift 0.22 invokes these instance hooks from TSocket.open(). Supplying
     # resolved addresses avoids a second blocking lookup, while wrapping socket
     # creation refreshes the shared deadline before every address attempt.
     thrift_socket._resolveAddr = resolved_addresses

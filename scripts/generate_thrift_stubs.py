@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[1]
 GENERATED_ROOT = ROOT / "src/ray_hive/_hs2/generated"
 IDL = GENERATED_ROOT / "idl/TCLIService.thrift"
 EXPECTED_IDL_SHA256 = "0146013b0bf6f9d794364dac40d1537662708aa62c548548191eb5cd821c391b"
-IMAGE = "ray-hive-thrift:0.16.0"
+IMAGE = "ray-hive-thrift:0.22.0"
 PACKAGE_FILES = (
     "TCLIService-remote",
     "TCLIService.py",
@@ -56,6 +56,8 @@ def _generate(output: Path) -> Path:
             "docker",
             "run",
             "--rm",
+            "--platform",
+            "linux/amd64",
             "--user",
             f"{os.getuid()}:{os.getgid()}",
             "-v",
@@ -100,6 +102,8 @@ def main() -> None:
                 "docker",
                 "buildx",
                 "build",
+                "--platform",
+                "linux/amd64",
                 "--load",
                 "-t",
                 IMAGE,

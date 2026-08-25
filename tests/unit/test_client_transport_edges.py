@@ -420,7 +420,7 @@ def test_native_transport_rejects_unverified_thrift_version_before_dns(
 
     monkeypatch.setattr(transport_module.socket, "getaddrinfo", unexpected_resolution)
 
-    with pytest.raises(HiveCompatibilityError, match=r"requires Thrift 0\.16\.0"):
+    with pytest.raises(HiveCompatibilityError, match=r"requires Thrift 0\.22\.0"):
         transport_module.open_native_transport(HiveConnectionOptions(host="hs2.example"))
 
 
@@ -467,6 +467,17 @@ def test_native_transport_rejects_incompatible_thrift_socket_hooks(
 ) -> None:
     with pytest.raises(HiveCompatibilityError, match=message):
         transport_module._install_connect_deadline(thrift_socket, [], deadline=1.0)
+
+
+def test_native_transport_accepts_verified_thrift_socket_hooks() -> None:
+    thrift_socket = transport_module.TSocket.TSocket("hs2.example", 10000)
+
+    open_socket = transport_module._require_thrift_socket_hooks(thrift_socket)
+
+    assert tuple(transport_module.inspect.signature(open_socket).parameters) == (
+        "family",
+        "socktype",
+    )
 
 
 def test_native_transport_rejects_uninspectable_thrift_socket_hooks(
