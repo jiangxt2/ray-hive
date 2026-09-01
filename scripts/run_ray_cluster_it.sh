@@ -19,6 +19,7 @@ project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 project_name="ray-hive-cluster-it"
 compose_file="${project_root}/docker/ray/compose.yaml"
 artifact_dir="${RAY_HIVE_CLUSTER_IT_LOG_DIR:-${project_root}/.artifacts/it/ray-cluster}"
+runtime_facts_file="${artifact_dir}/runtime-facts.json"
 runtime_image="ray-hive-cluster-runtime:${project_name}-$(date -u +%Y%m%d%H%M%S)-$$"
 ray_base_image="ray-hive-ray-base:2.56.1"
 ray_source_image="${RAY_HIVE_RAY_SOURCE_IMAGE:-docker.m.daocloud.io/rayproject/ray@sha256:56a97670c40913b7169c2b6e63be2e40c6724fcbb8fb85ce2a4040a4b5238492}"
@@ -92,7 +93,13 @@ record_docker_state before
 "${docker_clean_env[@]}" "${compose[@]}" up --detach --wait --no-build
 
 "${docker_clean_env[@]}" "${compose[@]}" exec -T runner \
-  python scripts/setup_hive_it.py tests/integration/setup.sql
+  python scripts/release_evidence.py capture-runtime \
+  --hive-version 4.2.0 --output - \
+  > "${runtime_facts_file}"
+
+"${docker_clean_env[@]}" "${compose[@]}" exec -T runner \
+  python scripts/setup_hive_it.py tests/integration/setup.sql \
+  2>&1 | tee "${artifact_dir}/setup.log"
 
 runtime_env_json='{"env_vars":{"RAY_HIVE_HS2_HOST":"hiveserver2","RAY_HIVE_HS2_PORT":"10000","RAY_HIVE_RAY_ADDRESS":"10.252.0.10:6379","RAY_HIVE_MIN_NODES":"3","PYTHONPATH":"./src:./tests","RAY_USAGE_STATS_ENABLED":"0"}}'
 set -o pipefail

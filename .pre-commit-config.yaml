@@ -26,6 +26,11 @@ repos:
         entry: .venv/bin/python scripts/check_spec.py
         language: system
         pass_filenames: false
+      - id: release-workflow-policy
+        name: Release workflow policy
+        entry: .venv/bin/python scripts/check_release_workflows.py
+        language: system
+        pass_filenames: false
       - id: docs
         name: Documentation
         entry: .venv/bin/mkdocs build --strict

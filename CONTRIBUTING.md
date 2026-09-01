@@ -15,6 +15,7 @@ pre-commit install --hook-type pre-commit
 .venv/bin/mypy
 .venv/bin/python scripts/check_license_headers.py
 .venv/bin/python scripts/check_spec.py
+.venv/bin/python scripts/check_release_workflows.py
 .venv/bin/mkdocs build --strict
 .venv/bin/codespell
 .venv/bin/python -m pytest tests/unit tests/contract --cov=ray_hive
@@ -49,6 +50,25 @@ Do not edit generated TCLIService files. Update the vendored IDL provenance and 
 
 Every independently verifiable behavior needs a unit or contract test. Protocol and database
 behavior also needs the applicable real infrastructure test.
+
+## Release evidence
+
+Pull requests, pushes, and release candidates use `scripts/check_dco.py` as the single DCO
+validator. CI, Hive integration, and Ray cluster workflows upload separate successful evidence
+manifests bound to the tested commit and workflow run. The release workflow selects exactly one
+active artifact for each required profile and revalidates every downloaded manifest before it
+builds distributions; it never starts those long-running suites itself.
+
+Run the local workflow policy check after changing CI or release orchestration:
+
+```bash
+.venv/bin/python scripts/check_release_workflows.py
+```
+
+Do not manually create, rename, copy, or edit a successful evidence artifact. Expired, missing,
+duplicate, wrong-workflow, or wrong-commit evidence blocks a release. A rerun of a long suite still
+requires a relevant code, test, infrastructure, configuration, or environment change and must be
+recorded in `tests/it-ledger.md`.
 
 ## Developer Certificate of Origin
 

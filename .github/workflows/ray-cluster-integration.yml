@@ -37,16 +37,42 @@ jobs:
     name: Ray 2.56.1 multi-node cluster
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    env:
+      RAY_HIVE_HIVE_SOURCE_IMAGE: apache/hive@sha256:b0d2842722567a89ac35da8af9002b6bba0fc2d0eb272664954a1fa46d694472
+      RAY_HIVE_RAY_SOURCE_IMAGE: rayproject/ray@sha256:56a97670c40913b7169c2b6e63be2e40c6724fcbb8fb85ce2a4040a4b5238492
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
           persist-credentials: false
       - name: Run exact Ray cluster infrastructure
-        env:
-          RAY_HIVE_RAY_SOURCE_IMAGE: rayproject/ray@sha256:56a97670c40913b7169c2b6e63be2e40c6724fcbb8fb85ce2a4040a4b5238492
-          RAY_HIVE_HIVE_SOURCE_IMAGE: apache/hive@sha256:b0d2842722567a89ac35da8af9002b6bba0fc2d0eb272664954a1fa46d694472
         run: ./scripts/run_ray_cluster_it.sh
+      - name: Write successful Ray cluster evidence manifest
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha || github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_ID: ${{ github.run_id }}
+        run: >-
+          python3 scripts/release_evidence.py write
+          --profile ray-cluster
+          --commit "${CANDIDATE_SHA}"
+          --run-id "${RUN_ID}"
+          --run-attempt "${RUN_ATTEMPT}"
+          --event "${EVENT_NAME}"
+          --identity-source measured-process
+          --runtime-file .artifacts/it/ray-cluster/runtime-facts.json
+          --image "${RAY_HIVE_RAY_SOURCE_IMAGE}"
+          --image "${RAY_HIVE_HIVE_SOURCE_IMAGE}"
+          --suite tests/integration/test_ray_cluster.py
+          --output artifacts/evidence/ray-cluster.json
+      - name: Upload successful Ray cluster evidence
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: ray-hive-evidence-ray-cluster-${{ inputs.candidate_sha || github.sha }}
+          path: artifacts/evidence/ray-cluster.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Preserve cluster logs
         if: always()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
@@ -54,4 +80,5 @@ jobs:
           name: ray-2561-cluster-${{ github.run_id }}-${{ github.run_attempt }}
           path: .artifacts/it/ray-cluster/
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 14

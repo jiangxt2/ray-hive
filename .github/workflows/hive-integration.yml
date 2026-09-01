@@ -23,9 +23,12 @@ jobs:
     name: Apache Hive 4.2.0
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    env:
+      RAY_HIVE_IT_HIVE_IMAGE: apache/hive@sha256:b0d2842722567a89ac35da8af9002b6bba0fc2d0eb272664954a1fa46d694472
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           ref: ${{ inputs.candidate_sha || github.sha }}
       - name: Install uv and Python
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -42,9 +45,35 @@ jobs:
           print('pyarrow=' + version('pyarrow'));
           print('thrift=' + version('thrift'))"
       - name: Run exact ray-hive-it infrastructure
-        env:
-          RAY_HIVE_IT_HIVE_IMAGE: apache/hive@sha256:b0d2842722567a89ac35da8af9002b6bba0fc2d0eb272664954a1fa46d694472
         run: ./scripts/run_hive_it.sh
+      - name: Write successful Hive evidence manifest
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha || github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          uv run --frozen python scripts/release_evidence.py capture-runtime \
+            --hive-version 4.2.0 \
+            --output artifacts/evidence/hive-runtime.json
+          uv run --frozen python scripts/release_evidence.py write \
+            --profile hive-420 \
+            --commit "${CANDIDATE_SHA}" \
+            --run-id "${RUN_ID}" \
+            --run-attempt "${RUN_ATTEMPT}" \
+            --event "${EVENT_NAME}" \
+            --identity-source measured-process \
+            --runtime-file artifacts/evidence/hive-runtime.json \
+            --image "${RAY_HIVE_IT_HIVE_IMAGE}" \
+            --suite tests/integration/test_hive_420.py \
+            --output artifacts/evidence/hive-420.json
+      - name: Upload successful Hive evidence
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: ray-hive-evidence-hive-420-${{ inputs.candidate_sha || github.sha }}
+          path: artifacts/evidence/hive-420.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Preserve Hive logs
         if: always()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
