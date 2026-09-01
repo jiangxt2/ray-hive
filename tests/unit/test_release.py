@@ -21,6 +21,8 @@ import tarfile
 import zipfile
 from pathlib import Path
 
+PROJECT_VERSION = "1.1"
+
 
 def _run_validator(root: Path, *arguments: str) -> None:
     subprocess.run(  # noqa: S603 -- executable and arguments are fixed/local.
@@ -31,16 +33,16 @@ def _run_validator(root: Path, *arguments: str) -> None:
 
 
 def _write_distributions(directory: Path) -> None:
-    wheel = directory / "ray_hive-1.0-py3-none-any.whl"
+    wheel = directory / f"ray_hive-{PROJECT_VERSION}-py3-none-any.whl"
     with zipfile.ZipFile(wheel, "w") as archive:
         archive.writestr(
-            "ray_hive-1.0.dist-info/METADATA",
-            "Metadata-Version: 2.4\nName: ray-hive\nVersion: 1.0\n",
+            f"ray_hive-{PROJECT_VERSION}.dist-info/METADATA",
+            f"Metadata-Version: 2.4\nName: ray-hive\nVersion: {PROJECT_VERSION}\n",
         )
-    sdist = directory / "ray-hive-1.0.tar.gz"
+    sdist = directory / f"ray-hive-{PROJECT_VERSION}.tar.gz"
     with tarfile.open(sdist, "w:gz") as archive:
-        content = b"Metadata-Version: 2.4\nName: ray-hive\nVersion: 1.0\n"
-        info = tarfile.TarInfo("ray-hive-1.0/PKG-INFO")
+        content = f"Metadata-Version: 2.4\nName: ray-hive\nVersion: {PROJECT_VERSION}\n".encode()
+        info = tarfile.TarInfo(f"ray-hive-{PROJECT_VERSION}/PKG-INFO")
         info.size = len(content)
         archive.addfile(info, io.BytesIO(content))
 
@@ -57,7 +59,7 @@ def test_release_artifact_manifest_round_trip(tmp_path: Path) -> None:
         "--name",
         "ray-hive",
         "--version",
-        "1.0",
+        PROJECT_VERSION,
         "--manifest",
         str(manifest),
         "--prepare",
@@ -68,7 +70,7 @@ def test_release_artifact_manifest_round_trip(tmp_path: Path) -> None:
         "--name",
         "ray-hive",
         "--version",
-        "1.0",
+        PROJECT_VERSION,
         "--manifest",
         str(manifest),
     )

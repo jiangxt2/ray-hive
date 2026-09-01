@@ -5,7 +5,7 @@ for storage access, table formats, authorization, query execution, and snapshot 
 connector turns one sequential HS2 result stream into multiple Arrow blocks without exposing Hive
 Metastore, HDFS, object-store, manifest, or file-location configuration.
 
-The package is Alpha and supports final Ray releases `>=2.55.1,<2.57` with PyArrow 19.0.1 and
+The package is Alpha and supports final Ray releases `>=2.55.1,<2.59` with PyArrow 19.0.1 and
 Apache Hive 4.2.0. Only native binary + NOSASL is currently implemented. See the compatibility and conformance
 pages before treating a tested case as a broader support claim.
 

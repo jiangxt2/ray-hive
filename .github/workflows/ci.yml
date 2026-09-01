@@ -76,10 +76,18 @@ jobs:
             ray-version: "2.55.1"
           - python-version: "3.12"
             ray-version: "2.56.1"
+          - python-version: "3.12"
+            ray-version: "2.57.0"
+          - python-version: "3.12"
+            ray-version: "2.58.0"
           - python-version: "3.13"
             ray-version: "2.55.1"
           - python-version: "3.13"
             ray-version: "2.56.1"
+          - python-version: "3.13"
+            ray-version: "2.57.0"
+          - python-version: "3.13"
+            ray-version: "2.58.0"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -179,6 +187,8 @@ jobs:
           --python-version 3.13
           --ray-version 2.55.1
           --ray-version 2.56.1
+          --ray-version 2.57.0
+          --ray-version 2.58.0
           --pyarrow-version 19.0.1
           --thrift-version 0.22.0
           --suite dco-static-unit-contract-codegen-package

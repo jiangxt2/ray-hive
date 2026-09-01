@@ -33,8 +33,15 @@ def _workflows() -> dict[str, str]:
         "release": (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8"),
         "precommit": (ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8"),
         "project": (ROOT / "pyproject.toml").read_text(encoding="utf-8"),
+        "compat": (ROOT / "src/ray_hive/_compat.py").read_text(encoding="utf-8"),
         "ray_dockerfile": (ROOT / "docker/ray/Dockerfile").read_text(encoding="utf-8"),
         "cluster_runner": (ROOT / "scripts/run_ray_cluster_it.sh").read_text(encoding="utf-8"),
+        "readme": (ROOT / "README.md").read_text(encoding="utf-8"),
+        "support": (ROOT / "SUPPORT.md").read_text(encoding="utf-8"),
+        "compatibility": (ROOT / "docs/compatibility.md").read_text(encoding="utf-8"),
+        "docs_index": (ROOT / "docs/index.md").read_text(encoding="utf-8"),
+        "changelog": (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"),
+        "release_notes": (ROOT / "release-notes/v1.1.md").read_text(encoding="utf-8"),
     }
 
 
@@ -135,6 +142,25 @@ def test_policy_parses_ci_evidence_dependencies_instead_of_matching_body_text() 
     assert any("CI evidence must depend on package" in failure for failure in failures)
 
 
+def test_policy_requires_every_python_ray_matrix_pair_exactly_once() -> None:
+    workflows = _workflows()
+    target = '          - python-version: "3.13"\n            ray-version: "2.58.0"\n'
+    duplicate = '          - python-version: "3.13"\n            ray-version: "2.57.0"\n'
+    assert target in workflows["ci"]
+
+    missing = workflows["ci"].replace(target, "", 1)
+    failures = _failures(ci=missing)
+    assert any("each expected Python/Ray pair exactly once" in failure for failure in failures)
+
+    replaced_by_duplicate = workflows["ci"].replace(target, duplicate, 1)
+    failures = _failures(ci=replaced_by_duplicate)
+    assert any("each expected Python/Ray pair exactly once" in failure for failure in failures)
+
+    extra_duplicate = workflows["ci"].replace(target, target + target, 1)
+    failures = _failures(ci=extra_duplicate)
+    assert any("each expected Python/Ray pair exactly once" in failure for failure in failures)
+
+
 def test_policy_requires_matrix_manifest_and_project_versions_to_stay_aligned() -> None:
     workflows = _workflows()
     ci = workflows["ci"].replace("--ray-version 2.56.1", "--ray-version 2.57.0", 1)
@@ -144,6 +170,45 @@ def test_policy_requires_matrix_manifest_and_project_versions_to_stay_aligned() 
     project = workflows["project"].replace("thrift==0.22.0", "thrift==0.23.0")
     failures = _failures(project=project)
     assert any("project dependency is missing" in failure for failure in failures)
+
+    project = workflows["project"].replace("ray[data]>=2.55.1,<2.59", "ray[data]>=2.55.1,<2.60")
+    failures = _failures(project=project)
+    assert any("project dependency is missing" in failure for failure in failures)
+
+    compat = workflows["compat"].replace(
+        "_MAX_RAY_VERSION = (2, 59, 0)", "_MAX_RAY_VERSION = (2, 60, 0)"
+    )
+    failures = _failures(compat=compat)
+    assert any("compatibility constants" in failure for failure in failures)
+
+    readme = workflows["readme"].replace(">=2.55.1,<2.59", ">=2.55.1,<2.60")
+    failures = _failures(readme=readme)
+    assert any("README must declare" in failure for failure in failures)
+
+    support = workflows["support"].replace(
+        "A final patch release within an admitted\nminor",
+        "An unspecified patch policy",
+    )
+    failures = _failures(support=support)
+    assert any("distinguish the Ray window" in failure for failure in failures)
+
+    compatibility = workflows["compatibility"].replace(
+        "The\nreal-infrastructure baseline is Ray 2.58.0",
+        "The infrastructure baseline is unspecified",
+    )
+    failures = _failures(compatibility=compatibility)
+    assert any("real-infrastructure Ray baseline" in failure for failure in failures)
+
+    changelog = workflows["changelog"].replace(
+        "[ray-hive 1.1 release notes](release-notes/v1.1.md)",
+        "missing release notes",
+    )
+    failures = _failures(changelog=changelog)
+    assert any("CHANGELOG must link" in failure for failure in failures)
+
+    release_notes = workflows["release_notes"].replace("# ray-hive 1.1", "# wrong version")
+    failures = _failures(release_notes=release_notes)
+    assert any("release notes are missing" in failure for failure in failures)
 
     ray_dockerfile = workflows["ray_dockerfile"].replace(
         '"thrift==0.22.0"',
@@ -158,6 +223,17 @@ def test_policy_requires_matrix_manifest_and_project_versions_to_stay_aligned() 
     )
     failures = _failures(ray_dockerfile=ray_dockerfile)
     assert any("must assert the installed Thrift version" in failure for failure in failures)
+
+    cluster_runner = workflows["cluster_runner"].replace(
+        "sha256:c3c9573c5c6bfe4127885f79622d6a32064d34cafc7d156ec728aab8657be250",
+        "sha256:" + "0" * 64,
+    )
+    failures = _failures(cluster_runner=cluster_runner)
+    assert any("pinned current Ray image" in failure for failure in failures)
+
+    release = workflows["release"].replace('default: "v1.1"', 'default: "v1.0"')
+    failures = _failures(release=release)
+    assert any("defaults must match" in failure for failure in failures)
 
 
 def test_policy_rejects_hidden_artifacts_and_declared_real_runtime() -> None:

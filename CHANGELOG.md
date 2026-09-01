@@ -2,9 +2,9 @@
 
 All notable changes to this project are documented in this file.
 
-## Unreleased
+## 1.1
 
-- Expand the verified Ray Data compatibility window to final releases `>=2.55.1,<2.57`.
+- See the [ray-hive 1.1 release notes](release-notes/v1.1.md).
 
 ## 1.0
 

@@ -5,15 +5,22 @@ The package maintains a bounded, explicitly exercised Python client stack:
 | Component | Initial baseline | Current claim |
 |---|---:|---|
 | Python | 3.12, 3.13 | Package and static/unit matrix |
-| Ray | 2.55.1, 2.56.1 | Bounded final-release window and explicit API/signature contract |
+| Ray | 2.55.1, 2.56.1, 2.57.0, 2.58.0 | Bounded final-release window and explicit API/signature contract |
 | PyArrow | 19.0.1 | Exact decoder and Ray block contract |
 | Apache Hive | 4.2.0 | Primary real-infrastructure target |
 | Apache Hive | 4.0.1 | Compatibility target; no inference from 4.2.0 |
 | Apache Hive | 3.1.3 | Legacy target; Hive 3.x is end-of-life |
 
-The wheel declares `ray[data]>=2.55.1,<2.57` and keeps an exact PyArrow dependency. A new Ray minor is admitted
-only after unit, protocol, real Hive, and Ray cluster evidence exists. Runtime signature checks fail
-closed when the installed Ray DeveloperAPI shape differs.
+The wheel declares `ray[data]>=2.55.1,<2.59` and keeps an exact PyArrow dependency. Exact CI
+baselines cover Ray 2.55.1, 2.56.1, 2.57.0, and 2.58.0 on Python 3.12 and 3.13. The
+real-infrastructure baseline is Ray 2.58.0 with Hive 4.2.0; the project does not repeat the complete
+Hive and cluster suites for every admitted minor.
+
+A final patch release within an admitted minor is included in the bounded compatibility window if
+dependency resolution succeeds and the runtime signature guard accepts the installed public API.
+It does not inherit an exact-runtime evidence claim. A new Ray minor requires an explicit range
+change, exact CI baseline, public-signature review, and a current real-infrastructure baseline.
+Runtime signature checks fail closed when the installed Ray DeveloperAPI shape differs.
 
 The complete support/evidence table, unsupported-version request path, API stability policy, and
 maintenance ownership are in the project

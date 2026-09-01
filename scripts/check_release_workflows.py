@@ -18,10 +18,22 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 _ACTION_PIN = re.compile(r"^[0-9a-f]{40}$")
+_PROJECT_VERSION = "1.1"
+_RAY_RANGE = ">=2.55.1,<2.59"
+_PYTHON_VERSIONS = ("3.12", "3.13")
+_RAY_VERSIONS = ("2.55.1", "2.56.1", "2.57.0", "2.58.0")
+_EXPECTED_UNIT_MATRIX = Counter(
+    (python_version, ray_version)
+    for python_version in _PYTHON_VERSIONS
+    for ray_version in _RAY_VERSIONS
+)
+_CLUSTER_RAY_VERSION = "2.58.0"
+_CLUSTER_RAY_DIGEST = "sha256:c3c9573c5c6bfe4127885f79622d6a32064d34cafc7d156ec728aab8657be250"
 
 
 def _job(workflow: str, job_id: str) -> str:
@@ -76,6 +88,23 @@ def _exact_dependency(source: str, package: str) -> str | None:
     return None if match is None else match.group(1)
 
 
+def _matrix_include_pairs(job: str) -> tuple[tuple[str, str], ...]:
+    pairs: list[tuple[str, str]] = []
+    lines = job.splitlines()
+    for index, line in enumerate(lines):
+        python_match = re.fullmatch(r'\s*-\s+python-version:\s*"([^"]+)"\s*', line)
+        if python_match is None or index + 1 >= len(lines):
+            continue
+        ray_match = re.fullmatch(r'\s+ray-version:\s*"([^"]+)"\s*', lines[index + 1])
+        if ray_match is not None:
+            pairs.append((python_match.group(1), ray_match.group(1)))
+    return tuple(pairs)
+
+
+def _normalized_text(source: str) -> str:
+    return " ".join(source.split())
+
+
 def workflow_policy_failures(
     *,
     ci: str,
@@ -84,8 +113,15 @@ def workflow_policy_failures(
     release: str,
     precommit: str,
     project: str,
+    compat: str,
     ray_dockerfile: str,
     cluster_runner: str,
+    readme: str,
+    support: str,
+    compatibility: str,
+    docs_index: str,
+    changelog: str,
+    release_notes: str,
 ) -> tuple[str, ...]:
     """Return all CI/release evidence policy violations."""
 
@@ -142,30 +178,56 @@ def workflow_policy_failures(
         "CI evidence artifact must bind to candidate SHA",
     )
     unit = _job(ci, "unit-contract")
-    for python_version in ("3.12", "3.13"):
-        require(
-            f'python-version: "{python_version}"' in unit,
-            f"CI unit matrix must include Python {python_version}",
-        )
+    require(
+        Counter(_matrix_include_pairs(unit)) == _EXPECTED_UNIT_MATRIX,
+        "CI unit matrix must contain each expected Python/Ray pair exactly once",
+    )
+    for python_version in _PYTHON_VERSIONS:
         require(
             f"--python-version {python_version}" in ci_evidence,
             f"CI evidence must record Python {python_version}",
         )
-    for ray_version in ("2.55.1", "2.56.1"):
-        require(
-            f'ray-version: "{ray_version}"' in unit,
-            f"CI unit matrix must include Ray {ray_version}",
-        )
+    for ray_version in _RAY_VERSIONS:
         require(
             f"--ray-version {ray_version}" in ci_evidence,
             f"CI evidence must record Ray {ray_version}",
         )
     for requirement in (
+        f'version = "{_PROJECT_VERSION}"',
+        'requires-python = ">=3.12,<3.14"',
         '"pyarrow==19.0.1"',
-        '"ray[data]>=2.55.1,<2.57"',
+        f'"ray[data]{_RAY_RANGE}"',
         '"thrift==0.22.0"',
     ):
         require(requirement in project, f"project dependency is missing {requirement}")
+    require(
+        f'SUPPORTED_RAY_RANGE = "{_RAY_RANGE}"' in compat
+        and "_MAX_RAY_VERSION = (2, 59, 0)" in compat,
+        "runtime compatibility constants must match the project Ray range",
+    )
+    for name, document in {
+        "README": readme,
+        "SUPPORT": support,
+        "compatibility docs": compatibility,
+        "docs index": docs_index,
+    }.items():
+        require(_RAY_RANGE in document, f"{name} must declare the supported Ray range")
+    normalized_support = _normalized_text(support)
+    normalized_compatibility = _normalized_text(compatibility)
+    require(
+        "Exact CI baselines are" in normalized_support
+        and "A final patch release within an admitted minor" in normalized_support,
+        "SUPPORT must distinguish the Ray window from exact evidence baselines",
+    )
+    require(
+        "The real-infrastructure baseline is Ray 2.58.0" in normalized_compatibility,
+        "compatibility docs must identify the real-infrastructure Ray baseline",
+    )
+    require(
+        "[ray-hive 1.1 release notes](release-notes/v1.1.md)" in changelog,
+        "CHANGELOG must link to the 1.1 release notes",
+    )
+    require("# ray-hive 1.1" in release_notes, "1.1 release notes are missing their identity")
     project_thrift = _exact_dependency(project, "thrift")
     docker_thrift = _exact_dependency(ray_dockerfile, "thrift")
     require(
@@ -182,6 +244,16 @@ def workflow_policy_failures(
             f"--thrift-version {project_thrift}" in ci_evidence,
             "CI evidence Thrift identity must match the project dependency",
         )
+    require(
+        f"ray-hive-ray-base:{_CLUSTER_RAY_VERSION}" in ray_dockerfile
+        and f"'ray': '{_CLUSTER_RAY_VERSION}'" in ray_dockerfile,
+        "Ray cluster image build must assert the current Ray version",
+    )
+    require(
+        f'ray_base_image="ray-hive-ray-base:{_CLUSTER_RAY_VERSION}"' in cluster_runner
+        and _CLUSTER_RAY_DIGEST in cluster_runner,
+        "Ray cluster runner must use the pinned current Ray image",
+    )
     for manifest_argument in ("--pyarrow-version 19.0.1", "--thrift-version 0.22.0"):
         require(
             manifest_argument in ci_evidence,
@@ -219,7 +291,7 @@ def workflow_policy_failures(
     )
     require("if: always()" in hive_job, "Hive workflow must preserve logs on failure")
 
-    cluster_job = _job(cluster, "ray-2561-cluster")
+    cluster_job = _job(cluster, "ray-2580-cluster")
     require("workflow_call:" in cluster, "Ray cluster workflow must retain workflow_call")
     require(
         "--profile ray-cluster" in cluster_job,
@@ -264,10 +336,22 @@ def workflow_policy_failures(
         "ray-hive-evidence-ray-cluster-${{ inputs.candidate_sha || github.sha }}" in cluster_job,
         "Ray cluster evidence artifact must bind to candidate SHA",
     )
+    require(
+        f"Ray {_CLUSTER_RAY_VERSION} multi-node cluster" in cluster_job
+        and _CLUSTER_RAY_DIGEST in cluster_job
+        and "ray-2580-cluster-${{ github.run_id }}-${{ github.run_attempt }}" in cluster_job,
+        "Ray cluster workflow must use the current Ray identity",
+    )
     require("if: always()" in cluster_job, "Ray cluster workflow must preserve logs on failure")
 
     require('tags: ["v*"]' in release, "Release must trigger on version tags")
     require("workflow_dispatch:" in release, "Release must support candidate dry runs")
+    require(
+        f"for example {_PROJECT_VERSION}" in release
+        and f"for example v{_PROJECT_VERSION}" in release
+        and f'default: "v{_PROJECT_VERSION}"' in release,
+        "Release workflow defaults must match the project version",
+    )
     candidate = _job(release, "candidate")
     evidence = _job(release, "evidence")
     build = _job(release, "build")
@@ -361,8 +445,15 @@ def main() -> int:
         release=(ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8"),
         precommit=(ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8"),
         project=(ROOT / "pyproject.toml").read_text(encoding="utf-8"),
+        compat=(ROOT / "src/ray_hive/_compat.py").read_text(encoding="utf-8"),
         ray_dockerfile=(ROOT / "docker/ray/Dockerfile").read_text(encoding="utf-8"),
         cluster_runner=(ROOT / "scripts/run_ray_cluster_it.sh").read_text(encoding="utf-8"),
+        readme=(ROOT / "README.md").read_text(encoding="utf-8"),
+        support=(ROOT / "SUPPORT.md").read_text(encoding="utf-8"),
+        compatibility=(ROOT / "docs/compatibility.md").read_text(encoding="utf-8"),
+        docs_index=(ROOT / "docs/index.md").read_text(encoding="utf-8"),
+        changelog=(ROOT / "CHANGELOG.md").read_text(encoding="utf-8"),
+        release_notes=(ROOT / "release-notes/v1.1.md").read_text(encoding="utf-8"),
     )
     for failure in failures:
         print(failure)

@@ -16,17 +16,23 @@ remain blocked until ownership and release access have a documented backup.
 | Component | Alpha support claim | Required evidence |
 | --- | --- | --- |
 | Python | 3.12 and 3.13 | Locked package, static, unit, and contract CI |
-| Ray | Final 2.55.1 through 2.56.x releases within `>=2.55.1,<2.57` | Unit and public-signature matrix; the release candidate also requires a multi-node Ray 2.56.1 run |
+| Ray | Final releases within `>=2.55.1,<2.59` | Exact Python/Ray CI baselines plus a Ray 2.58.0 real-infrastructure baseline |
 | PyArrow | 19.0.1 exactly | Decoder, Ray block, Hive, and cluster evidence |
 | Thrift | 0.22.0 exactly | Native transport guard plus measured Hive and cluster runtime facts |
 | Apache Hive | 4.2.0 | Required real-Hive integration suite against the pinned image |
 
-Evidence is valid only for the exact source commit and runtime identity recorded by the CI, Hive,
-and Ray cluster manifests. A nearby version, a mock, or a successful run from an older dependency
-state does not extend the support claim. Hive 4.0.1 and 3.1.3 are compatibility targets, not current
-supported profiles. Ray 2.57 or later, pre-releases, post-releases, and development builds are not
-supported until a later compatibility change adds evidence and updates the declared dependency
-window.
+The declared Ray window covers every final release from 2.55.1 through the last 2.58 patch. Exact
+CI baselines are Ray 2.55.1, 2.56.1, 2.57.0, and 2.58.0 on Python 3.12 and 3.13. The
+real-infrastructure baseline is Ray 2.58.0 with Hive 4.2.0. A final patch release within an admitted
+minor enters the bounded window without a dedicated infrastructure run, but it is supported through
+dependency resolution and the runtime signature guard rather than claimed as an exact evidence
+baseline. A discovered patch regression can narrow the window or require a corrective release.
+
+Evidence manifests remain valid only for their exact source commit and recorded runtime. They do
+not establish support outside the declared Ray window or for a different Hive, PyArrow, Thrift, or
+configuration profile. Hive 4.0.1 and 3.1.3 are compatibility targets, not current supported
+profiles. Ray 2.59 or later, pre-releases, post-releases, and development builds remain unsupported
+until a later compatibility change adds evidence and updates the declared dependency window.
 
 The implemented runtime profile is native binary transport with `NOSASL`. HTTP, SASL, Kerberos,
 LDAP, CUSTOM authentication, PyHive, Impyla, and JDBC remain unsupported and fail closed.

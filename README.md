@@ -6,7 +6,7 @@ through the HS2 endpoint; they do not read HDFS, object storage, table manifests
 Metastore.
 
 The project is currently Alpha. The compatibility target is Python 3.12/3.13, final Ray releases
-`>=2.55.1,<2.57`, PyArrow 19.0.1, and Apache Hive 4.2.0. Production Core status will not be claimed until the real
+`>=2.55.1,<2.59`, PyArrow 19.0.1, and Apache Hive 4.2.0. Production Core status will not be claimed until the real
 Hive, security, network-purity, cancellation, and Ray cluster conformance suites pass.
 See [SUPPORT.md](SUPPORT.md) for evidence levels, API stability, maintenance ownership, and the
 external community support boundary.
