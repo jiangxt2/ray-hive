@@ -26,7 +26,7 @@ RUN python -m pip install --no-cache-dir \
       "pyarrow==19.0.1" \
       "pytest>=8.3,<10" \
       "pytest-timeout>=2.3,<3" \
-      "thrift==0.16.0" \
+      "thrift==0.22.0" \
       "typing-extensions>=4.12,<5" \
     && python -m pip install --no-cache-dir --no-deps -e . \
-    && python -c "from importlib.metadata import version; assert version('ray') == '2.56.1'"
+    && python -c "import platform; from importlib.metadata import version; actual = {'python': platform.python_version(), 'ray': version('ray'), 'pyarrow': version('pyarrow'), 'thrift': version('thrift')}; expected = {'ray': '2.56.1', 'pyarrow': '19.0.1', 'thrift': '0.22.0'}; print('ray-hive cluster runtime:', actual); assert actual['python'].split('.')[:2] == ['3', '12']; assert {name: actual[name] for name in expected} == expected"

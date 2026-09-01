@@ -19,9 +19,20 @@ from decimal import Decimal
 
 import pytest
 
+import ray_hive.sql as sql_api
 from ray_hive import HivePlanningError
-from ray_hive._sql import quote_identifier, render_literal
+from ray_hive._sql import (
+    quote_identifier,
+    render_literal,
+    validate_raw_select,
+    validate_unsafe_where,
+)
 from ray_hive.sql import col
+
+
+def test_structured_predicate_builder_has_a_stable_public_surface() -> None:
+    assert sql_api.__all__ == ["Column", "Predicate", "col"]
+    assert "Stable built-in" in (sql_api.__doc__ or "")
 
 
 def test_identifier_quoting_escapes_backticks() -> None:
@@ -39,7 +50,8 @@ def test_identifier_quoting_escapes_backticks() -> None:
         (42, "42"),
         (1.25, "1.25"),
         (Decimal("12.30"), "DECIMAL '12.30'"),
-        ("O'Reilly", "'O''Reilly'"),
+        ("O'Reilly", "'O\\'Reilly'"),
+        (r"C:\data\file", r"'C:\\data\\file'"),
         (b"\x00\xff", "X'00FF'"),
         (date(2026, 8, 9), "DATE '2026-08-09'"),
         (
@@ -59,6 +71,95 @@ def test_literal_rendering(value: object, expected: str) -> None:
 def test_literal_rendering_rejects_ambiguous_values(value: object) -> None:
     with pytest.raises(HivePlanningError):
         render_literal(value)
+
+
+def test_identifier_and_literal_reject_preparse_variable_substitution() -> None:
+    with pytest.raises(HivePlanningError, match="variable substitution"):
+        quote_identifier("${env:TABLE}")
+    with pytest.raises(HivePlanningError, match="variable substitution"):
+        render_literal("${hiveconf:FILTER}")
+    with pytest.raises(HivePlanningError, match="NUL"):
+        render_literal("value\x00suffix")
+    with pytest.raises(HivePlanningError, match="variable substitution"):
+        col("value").eq("${env:FILTER}")
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT 1",
+        "  SeLeCt (1 + (2))  ",
+        "SELECT '; DROP TABLE hidden' AS value",
+        'SELECT "-- not a comment" AS value',
+        "SELECT `semi;--/*` FROM `db`.`table`",
+        r"SELECT 'escaped\' quote; -- still literal'",
+        "SELECT 'adjacent''; DROP remains quoted'",
+    ],
+)
+def test_raw_select_validator_accepts_one_conservative_select(sql: str) -> None:
+    assert validate_raw_select(sql) == sql.strip()
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "",
+        "WITH source AS (SELECT 1) SELECT * FROM source",
+        "EXPLAIN SELECT 1",
+        "SHOW TABLES",
+        "INSERT INTO target SELECT 1",
+        "SELECTED 1",
+        "SELECTé 1",
+        "SELECT 1;",
+        "SELECT 1; DROP TABLE target",
+        "SELECT /* hidden */ 1",
+        "SELECT -- hidden\n1",
+        "SELECT */ 1",
+        "SELECT (1",
+        "SELECT 1)",
+        "SELECT 'unterminated",
+        'SELECT "unterminated',
+        "SELECT `unterminated",
+        "SELECT 'incomplete\\",
+        "SELECT '\x00'",
+        "SELECT '${env:QUERY}'",
+    ],
+)
+def test_raw_select_validator_rejects_ambiguous_or_multi_statement_sql(sql: str) -> None:
+    with pytest.raises(HivePlanningError):
+        validate_raw_select(sql)
+
+
+@pytest.mark.parametrize(
+    "fragment",
+    [
+        "id = 1",
+        "(id = 1 OR id = 2)",
+        "label = '; -- /* quoted'",
+        r"label = 'escaped\' quote; -- quoted'",
+        "`odd);--name` = 1",
+    ],
+)
+def test_unsafe_where_validator_confines_one_predicate(fragment: str) -> None:
+    assert validate_unsafe_where(fragment) == fragment.strip()
+
+
+@pytest.mark.parametrize(
+    "fragment",
+    [
+        "",
+        "id = 1; DROP TABLE target",
+        "id = 1 -- bypass",
+        "id = 1 /* bypass */",
+        ") OR TRUE OR (",
+        "(id = 1",
+        "id = '${env:FILTER}'",
+        "id = '\x00'",
+    ],
+)
+def test_unsafe_where_validator_rejects_renderer_escape(fragment: str) -> None:
+    with pytest.raises(HivePlanningError):
+        validate_unsafe_where(fragment)
 
 
 def test_complete_predicate_tree_renders_without_stringifying_unknown_objects() -> None:

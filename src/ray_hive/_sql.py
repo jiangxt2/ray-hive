@@ -21,10 +21,18 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
+from typing import cast
 
 from ray_hive._errors import HivePlanningError
 
 type HiveLiteral = bool | int | float | Decimal | str | bytes | date | datetime | None
+
+
+def _reject_variable_substitution(value: str, label: str) -> None:
+    if "${" in value:
+        raise HivePlanningError(
+            f"{label} must not use Hive variable substitution because it runs before parsing"
+        )
 
 
 def quote_identifier(identifier: str) -> str:
@@ -32,6 +40,7 @@ def quote_identifier(identifier: str) -> str:
 
     if not identifier or "\x00" in identifier:
         raise HivePlanningError("Hive identifiers must be non-empty and contain no NUL")
+    _reject_variable_substitution(identifier, "Hive identifiers")
     return f"`{identifier.replace('`', '``')}`"
 
 
@@ -65,8 +74,82 @@ def render_literal(value: HiveLiteral) -> str:
     if isinstance(value, bytes):
         return f"X'{value.hex().upper()}'"
     if isinstance(value, str):
-        return "'" + value.replace("'", "''") + "'"
+        if "\x00" in value:
+            raise HivePlanningError("Hive string literals must not contain NUL")
+        _reject_variable_substitution(value, "Hive string literals")
+        escaped = value.replace("\\", "\\\\").replace("'", "\\'")
+        return f"'{escaped}'"
     raise HivePlanningError(f"Unsupported Hive literal type: {type(value).__name__}")
+
+
+def _validate_sql_structure(value: str, *, label: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise HivePlanningError(f"{label} must be non-empty")
+    if "\x00" in normalized:
+        raise HivePlanningError(f"{label} must not contain NUL")
+    _reject_variable_substitution(normalized, label)
+
+    quote: str | None = None
+    depth = 0
+    index = 0
+    while index < len(normalized):
+        character = normalized[index]
+        if quote is not None:
+            if quote in {"'", '"'} and character == "\\":
+                if index + 1 == len(normalized):
+                    raise HivePlanningError(f"{label} has an incomplete string escape")
+                index += 2
+                continue
+            if character == quote:
+                if index + 1 < len(normalized) and normalized[index + 1] == quote:
+                    index += 2
+                    continue
+                quote = None
+            index += 1
+            continue
+
+        marker = normalized[index : index + 2]
+        if marker in {"--", "/*", "*/"}:
+            raise HivePlanningError(f"{label} must not contain SQL comments")
+        if character == ";":
+            raise HivePlanningError(f"{label} must contain exactly one statement")
+        if character in {"'", '"', "`"}:
+            quote = character
+        elif character == "(":
+            depth += 1
+        elif character == ")":
+            depth -= 1
+            if depth < 0:
+                raise HivePlanningError(f"{label} closes an outer parenthesis")
+        index += 1
+
+    if quote is not None:
+        raise HivePlanningError(f"{label} has an unclosed quoted value")
+    if depth:
+        raise HivePlanningError(f"{label} has unbalanced parentheses")
+    return normalized
+
+
+def validate_raw_select(sql: str) -> str:
+    """Return normalized raw SQL after proving it is one lexical SELECT statement."""
+
+    normalized = _validate_sql_structure(sql, label="Raw SQL")
+    token = ""
+    for character in normalized:
+        if character.isalnum() or character == "_":
+            token += character
+            continue
+        break
+    if token.casefold() != "select":
+        raise HivePlanningError("Raw SQL must start with a top-level SELECT statement")
+    return normalized
+
+
+def validate_unsafe_where(fragment: str) -> str:
+    """Return a normalized predicate fragment confined to renderer parentheses."""
+
+    return _validate_sql_structure(fragment, label="unsafe_where_sql")
 
 
 class Predicate(ABC):
@@ -150,6 +233,7 @@ class ComparisonPredicate(Predicate):
             raise HivePlanningError(f"Unsupported comparison operator: {self.operator!r}")
         if self.value is None:
             raise HivePlanningError("NULL comparisons must use is_null() or is_not_null()")
+        render_literal(self.value)
 
     def to_sql(self) -> str:
         return f"{self.column.to_sql()} {self.operator} {render_literal(self.value)}"
@@ -176,6 +260,8 @@ class InPredicate(Predicate):
             raise HivePlanningError("IN predicates require at least one value")
         if any(value is None for value in self.values):
             raise HivePlanningError("IN predicates cannot contain NULL")
+        for value in self.values:
+            render_literal(value)
 
     def to_sql(self) -> str:
         operator = "NOT IN" if self.negated else "IN"
@@ -210,6 +296,24 @@ class NotPredicate(Predicate):
 
     def to_sql(self) -> str:
         return f"NOT ({self.operand.to_sql()})"
+
+
+def validate_structured_predicate(predicate: Predicate) -> None:
+    """Validate one immutable built-in predicate tree before any Hive I/O."""
+
+    predicate_type = type(predicate)
+    if predicate_type in {ComparisonPredicate, NullPredicate, InPredicate}:
+        leaf = cast(ComparisonPredicate | NullPredicate | InPredicate, predicate)
+        if type(leaf.column) is not Column:
+            raise HivePlanningError("Custom Column implementations are unsupported")
+    elif predicate_type is LogicalPredicate:
+        for operand in cast(LogicalPredicate, predicate).operands:
+            validate_structured_predicate(operand)
+    elif predicate_type is NotPredicate:
+        validate_structured_predicate(cast(NotPredicate, predicate).operand)
+    else:
+        raise HivePlanningError("Custom Predicate implementations are unsupported")
+    validate_unsafe_where(predicate.to_sql())
 
 
 def col(name: str) -> Column:

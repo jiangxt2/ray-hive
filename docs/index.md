@@ -9,5 +9,13 @@ The package is Alpha and supports final Ray releases `>=2.55.1,<2.57` with PyArr
 Apache Hive 4.2.0. Only native binary + NOSASL is currently implemented. See the compatibility and conformance
 pages before treating a tested case as a broader support claim.
 
+The stable public surface includes top-level `read_hive()`, its configuration and error types, and
+the built-in `ray_hive.sql` predicate builder. Builder classes are not subclassing extension
+points. The datasource module is a DeveloperAPI without the facade's strict retry guarantee. Raw
+SQL is limited to one conservatively validated top-level `SELECT`, while table reads always render
+`SELECT` statements.
+
 Start with the project [README](https://github.com/jiangxt2/ray-hive#readme), then review the
 [consistency](consistency.md) and [security](security.md) contracts.
+The repository [support policy](https://github.com/jiangxt2/ray-hive/blob/master/SUPPORT.md) defines
+the version evidence, deprecation rules, maintenance ownership, and community support boundary.

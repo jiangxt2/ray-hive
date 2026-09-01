@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Advanced structured predicate API."""
+"""Stable built-in structured predicate builder API; subclassing is unsupported."""
 
 from ray_hive._sql import Column, Predicate, col
 

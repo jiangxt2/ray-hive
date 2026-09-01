@@ -18,6 +18,20 @@ Workers need access to HiveServer2 and the Ray cluster only. Do not give them HD
 S3, MinIO, or other storage credentials for this connector. HiveServer2 authorization remains the
 security boundary for table and row access.
 
+## Query-only boundary
+
+The stable `read_hive()` facade submits only table-generated `SELECT` statements or a single raw
+statement that passes the conservative top-level `SELECT` validator. Raw SQL and
+`unsafe_where_sql` reject comments, unquoted statement delimiters, unbalanced quoting or
+parentheses, NUL, and Hive `${...}` variable substitution before credentials, DNS, sockets, or an
+HS2 session are used. Structured identifiers and literals reject substitution as well.
+
+This boundary prevents the connector from submitting DDL, DML, or multiple statements. It does
+not sandbox Hive UDFs, script operators, authorization hooks, or other server-side extensions.
+Restrict those capabilities in HiveServer2 and run the connector with a read-only Hive identity.
+Direct use of the DeveloperAPI datasource is outside the stable facade and does not guarantee Ray
+task retry suppression.
+
 ## Transport security
 
 TLS verification is enabled by default when TLS is selected. Configure a trusted CA and expected

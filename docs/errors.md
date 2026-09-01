@@ -26,3 +26,7 @@ public message. Exception repr excludes messages, SQL, credentials, handles, and
 The table records construction defaults. Once any Arrow block has been published, every subsequent
 `HiveError` has `partial_output=true` and is non-retryable while preserving its concrete class and
 stable error code. A transport failure additionally changes to `TRANSPORT_AFTER_OUTPUT`.
+
+Raw SQL and unsafe predicate validation failures are `CONFIG` errors because immutable option
+construction rejects them before planning or I/O. A syntactically valid `SELECT` that HiveServer2
+cannot compile remains a `QUERY_COMPILE` error.

@@ -20,6 +20,7 @@ from functools import partial
 from typing import Any
 
 from ray.data import Datasource
+from ray.util.annotations import DeveloperAPI
 
 from ray_hive._compat import create_read_task, initialize_datasource
 from ray_hive._hs2.client import resolve_connection_factory
@@ -29,8 +30,9 @@ from ray_hive._task_spec import HiveTaskSpec
 from ray_hive._worker import iter_hive_blocks
 
 
+@DeveloperAPI
 class HiveServer2Datasource(Datasource):
-    """An immutable planned datasource; direct use does not imply strict Ray task options."""
+    """DeveloperAPI datasource whose direct use has no strict retry guarantee."""
 
     def __init__(self, task_specs: tuple[HiveTaskSpec, ...]) -> None:
         initialize_datasource(self)

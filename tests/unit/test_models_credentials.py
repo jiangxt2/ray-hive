@@ -32,7 +32,7 @@ from ray_hive import (
 )
 from ray_hive._credentials import CredentialContext, EnvironmentCredentialProvider
 from ray_hive._models import HiveConsistency, HiveDriver, HiveTransport
-from ray_hive.sql import col
+from ray_hive.sql import Column, Predicate, col
 
 
 def test_connection_normalizes_and_binds_configuration() -> None:
@@ -213,3 +213,55 @@ def test_read_options_normalize_table_and_experimental_splits() -> None:
     assert read.table == HiveTableIdentifier("db", "events")
     assert read.columns == ("id", "name")
     assert read.normalized_consistency is HiveConsistency.INDEPENDENT_QUERIES
+
+
+def test_read_options_validate_and_normalize_sql_before_planning() -> None:
+    raw = HiveReadOptions(sql="  SELECT 1  ")
+    predicate = HiveReadOptions(table="db.events", unsafe_where_sql="  id = 1  ")
+
+    assert raw.sql == "SELECT 1"
+    assert predicate.unsafe_where_sql == "id = 1"
+
+    with pytest.raises(HiveConfigurationError, match="top-level SELECT"):
+        HiveReadOptions(sql="DROP TABLE db.events")
+    with pytest.raises(HiveConfigurationError, match="outer parenthesis"):
+        HiveReadOptions(table="db.events", unsafe_where_sql=") OR TRUE OR (")
+    with pytest.raises(HiveConfigurationError, match="variable substitution"):
+        HiveReadOptions(table=HiveTableIdentifier("db", "${env:TABLE}"))
+    with pytest.raises(HiveConfigurationError, match="variable substitution"):
+        HiveReadOptions(table="db.events", columns=["${env:COLUMN}"])
+
+    class CustomPredicate(Predicate):
+        def to_sql(self) -> str:
+            return "TRUE); DROP TABLE db.events; --"
+
+    with pytest.raises(HiveConfigurationError, match="Custom Predicate"):
+        HiveReadOptions(table="db.events", filter=CustomPredicate())
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"filter": "comparison"},
+        {
+            "consistency": "independent_queries",
+            "split_predicates": "membership",
+        },
+    ],
+)
+def test_read_options_reject_custom_columns_in_all_predicate_paths(
+    options: dict[str, object],
+) -> None:
+    class CustomColumn(Column):
+        def to_sql(self) -> str:
+            return "coalesce(`id`, 0)"
+
+    custom = CustomColumn("id")
+    normalized = dict(options)
+    if normalized.get("filter") == "comparison":
+        normalized["filter"] = custom.eq(1)
+    if normalized.get("split_predicates") == "membership":
+        normalized["split_predicates"] = [custom.isin([1, 2])]
+
+    with pytest.raises(HiveConfigurationError, match="Custom Column"):
+        HiveReadOptions(table="db.events", **normalized)

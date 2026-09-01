@@ -25,8 +25,14 @@ from typing import cast
 import pyarrow as pa
 
 from ray_hive._credentials import CredentialContext, CredentialProvider, SecretRef
-from ray_hive._errors import HiveConfigurationError
-from ray_hive._sql import Predicate
+from ray_hive._errors import HiveConfigurationError, HivePlanningError
+from ray_hive._sql import (
+    Predicate,
+    quote_identifier,
+    validate_raw_select,
+    validate_structured_predicate,
+    validate_unsafe_where,
+)
 
 _ALLOWED_SESSION_OPTIONS = frozenset(
     {
@@ -80,6 +86,10 @@ class HiveTableIdentifier:
         for label, value in (("database", self.database), ("table", self.table)):
             if not isinstance(value, str) or not value or "\x00" in value:
                 raise HiveConfigurationError(f"Hive {label} must be non-empty and contain no NUL")
+            try:
+                quote_identifier(value)
+            except HivePlanningError as exc:
+                raise HiveConfigurationError(f"Invalid Hive {label}: {exc}") from exc
 
     @classmethod
     def parse(cls, value: str, *, default_database: str | None = None) -> HiveTableIdentifier:
@@ -251,14 +261,20 @@ class HiveReadOptions:
     def __post_init__(self) -> None:
         if (self.table is None) == (self.sql is None):
             raise HiveConfigurationError("Exactly one of table or sql must be supplied")
-        if self.sql is not None and (not isinstance(self.sql, str) or not self.sql.strip()):
+        sql = self.sql
+        if sql is not None and (not isinstance(sql, str) or not sql.strip()):
             raise HiveConfigurationError("Raw SQL must be non-empty")
-        if self.sql is not None and any(
+        if sql is not None and any(
             value is not None for value in (self.columns, self.filter, self.unsafe_where_sql)
         ):
             raise HiveConfigurationError(
                 "columns, filter, and unsafe_where_sql require the table API"
             )
+        if sql is not None:
+            try:
+                sql = validate_raw_select(sql)
+            except HivePlanningError as exc:
+                raise HiveConfigurationError(str(exc)) from exc
         if self.limit is not None and (
             isinstance(self.limit, bool) or not isinstance(self.limit, int) or self.limit <= 0
         ):
@@ -294,14 +310,30 @@ class HiveReadOptions:
                 raise HiveConfigurationError(
                     "Projection columns must be non-empty and contain no NUL"
                 )
+            try:
+                for column in columns:
+                    quote_identifier(column)
+            except HivePlanningError as exc:
+                raise HiveConfigurationError(f"Invalid projection column: {exc}") from exc
         if self.filter is not None and not isinstance(self.filter, Predicate):
             raise HiveConfigurationError("filter must be a ray-hive Predicate")
-        if self.unsafe_where_sql is not None and (
-            not isinstance(self.unsafe_where_sql, str) or not self.unsafe_where_sql.strip()
+        if self.filter is not None:
+            try:
+                validate_structured_predicate(self.filter)
+            except HivePlanningError as exc:
+                raise HiveConfigurationError(str(exc)) from exc
+        unsafe_where_sql = self.unsafe_where_sql
+        if unsafe_where_sql is not None and (
+            not isinstance(unsafe_where_sql, str) or not unsafe_where_sql.strip()
         ):
             raise HiveConfigurationError(
                 "unsafe_where_sql must be a non-empty string when supplied"
             )
+        if unsafe_where_sql is not None:
+            try:
+                unsafe_where_sql = validate_unsafe_where(unsafe_where_sql)
+            except HivePlanningError as exc:
+                raise HiveConfigurationError(str(exc)) from exc
         if self.schema is not None and not isinstance(self.schema, pa.Schema):
             raise HiveConfigurationError("schema must be a PyArrow Schema")
 
@@ -313,7 +345,12 @@ class HiveReadOptions:
         split_predicates = tuple(self.split_predicates)
         if any(not isinstance(predicate, Predicate) for predicate in split_predicates):
             raise HiveConfigurationError("split_predicates must contain ray-hive Predicates")
-        if self.sql is not None:
+        try:
+            for predicate in split_predicates:
+                validate_structured_predicate(predicate)
+        except HivePlanningError as exc:
+            raise HiveConfigurationError(str(exc)) from exc
+        if sql is not None:
             if consistency is not HiveConsistency.STRICT or split_predicates:
                 raise HiveConfigurationError("Raw SQL supports strict consistency only")
             if self.limit is not None:
@@ -328,7 +365,9 @@ class HiveReadOptions:
             raise HiveConfigurationError("A global Hive limit is unsafe with independent queries")
 
         object.__setattr__(self, "table", table)
+        object.__setattr__(self, "sql", sql)
         object.__setattr__(self, "columns", columns)
+        object.__setattr__(self, "unsafe_where_sql", unsafe_where_sql)
         object.__setattr__(self, "consistency", consistency)
         object.__setattr__(self, "split_predicates", split_predicates)
         object.__setattr__(self, "unsupported_type_mode", unsupported_type_mode)

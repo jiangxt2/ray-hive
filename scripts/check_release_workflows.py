@@ -71,6 +71,11 @@ def _top_level_block(workflow: str, key: str) -> str:
     return ""
 
 
+def _exact_dependency(source: str, package: str) -> str | None:
+    match = re.search(rf'"{re.escape(package)}==([^"\s]+)"', source)
+    return None if match is None else match.group(1)
+
+
 def workflow_policy_failures(
     *,
     ci: str,
@@ -79,6 +84,7 @@ def workflow_policy_failures(
     release: str,
     precommit: str,
     project: str,
+    ray_dockerfile: str,
     cluster_runner: str,
 ) -> tuple[str, ...]:
     """Return all CI/release evidence policy violations."""
@@ -160,6 +166,22 @@ def workflow_policy_failures(
         '"thrift==0.22.0"',
     ):
         require(requirement in project, f"project dependency is missing {requirement}")
+    project_thrift = _exact_dependency(project, "thrift")
+    docker_thrift = _exact_dependency(ray_dockerfile, "thrift")
+    require(
+        project_thrift is not None and docker_thrift == project_thrift,
+        "Ray cluster Dockerfile Thrift pin must match the project dependency",
+    )
+    if project_thrift is not None:
+        require(
+            f"'thrift': '{project_thrift}'" in ray_dockerfile
+            and "'thrift': version('thrift')" in ray_dockerfile,
+            "Ray cluster image build must assert the installed Thrift version",
+        )
+        require(
+            f"--thrift-version {project_thrift}" in ci_evidence,
+            "CI evidence Thrift identity must match the project dependency",
+        )
     for manifest_argument in ("--pyarrow-version 19.0.1", "--thrift-version 0.22.0"):
         require(
             manifest_argument in ci_evidence,
@@ -339,6 +361,7 @@ def main() -> int:
         release=(ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8"),
         precommit=(ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8"),
         project=(ROOT / "pyproject.toml").read_text(encoding="utf-8"),
+        ray_dockerfile=(ROOT / "docker/ray/Dockerfile").read_text(encoding="utf-8"),
         cluster_runner=(ROOT / "scripts/run_ray_cluster_it.sh").read_text(encoding="utf-8"),
     )
     for failure in failures:

@@ -11,6 +11,10 @@ could append a new snapshot to already consumed blocks. The connector therefore 
 data query. A failure after output is classified as `TRANSPORT_AFTER_OUTPUT`, is non-retryable, and
 fails the Dataset.
 
+This guarantee belongs to the top-level `read_hive()` facade. The lower-level datasource module is
+a DeveloperAPI, and calling it with `ray.data.read_datasource()` can select different Ray task retry
+settings. Such direct use is not evidence for the strict profile.
+
 Ray `Dataset.limit()` remains a Ray-side row limit. The datasource passes Ray's
 `per_task_row_limit` to `ReadTask`; it does not translate that optimizer hint into Hive `LIMIT`.
 `HiveReadOptions.limit` is part of the source query and has different semantics.

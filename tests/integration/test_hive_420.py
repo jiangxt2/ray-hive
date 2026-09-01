@@ -22,6 +22,7 @@ import pytest
 import ray
 
 from ray_hive import (
+    HiveConfigurationError,
     HiveConnectionOptions,
     HiveReadOptions,
     HiveSchemaError,
@@ -98,7 +99,13 @@ def test_table_projection_typed_predicate_and_source_limit() -> None:
     read = HiveReadOptions(
         table=HiveTableIdentifier("ray_hive_it", "primitive_values"),
         columns=("id", "label"),
-        filter=col("id").ge(2) & col("label").is_not_null() & col("label").ne(""),
+        filter=(
+            col("id").ge(2)
+            & col("label").is_not_null()
+            & col("label").ne("")
+            & col("label").ne("O'Reilly")
+            & col("label").ne(r"C:\data")
+        ),
         limit=2,
         fetch_rows=1,
     )
@@ -166,3 +173,25 @@ def test_strict_ray_facade_reads_view_without_query_replay() -> None:
         ray.shutdown()
 
     assert [row["id"] for row in rows] == [2, 3, 4, 5]
+
+
+def test_query_only_validation_prevents_side_effects_before_raw_select() -> None:
+    with pytest.raises(HiveConfigurationError, match="top-level SELECT"):
+        HiveReadOptions(sql="DROP TABLE ray_hive_it.primitive_values")
+    with pytest.raises(HiveConfigurationError, match="outer parenthesis"):
+        HiveReadOptions(
+            table="ray_hive_it.primitive_values",
+            unsafe_where_sql=") ; DROP TABLE ray_hive_it.primitive_values; --",
+        )
+
+    read = HiveReadOptions(
+        sql=(
+            "SELECT COUNT(*) AS row_count, '; -- /* quoted data' AS marker "
+            "FROM ray_hive_it.primitive_values"
+        ),
+        schema=pa.schema([("row_count", pa.int64()), ("marker", pa.string())]),
+    )
+    spec = HivePlanner(resolve_connection_factory).plan(_connection(), read)[0]
+    table = pa.concat_tables(list(iter_hive_blocks(spec)))
+
+    assert table.to_pylist() == [{"row_count": 5, "marker": "; -- /* quoted data"}]

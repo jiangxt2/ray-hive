@@ -33,6 +33,7 @@ def _workflows() -> dict[str, str]:
         "release": (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8"),
         "precommit": (ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8"),
         "project": (ROOT / "pyproject.toml").read_text(encoding="utf-8"),
+        "ray_dockerfile": (ROOT / "docker/ray/Dockerfile").read_text(encoding="utf-8"),
         "cluster_runner": (ROOT / "scripts/run_ray_cluster_it.sh").read_text(encoding="utf-8"),
     }
 
@@ -143,6 +144,20 @@ def test_policy_requires_matrix_manifest_and_project_versions_to_stay_aligned() 
     project = workflows["project"].replace("thrift==0.22.0", "thrift==0.23.0")
     failures = _failures(project=project)
     assert any("project dependency is missing" in failure for failure in failures)
+
+    ray_dockerfile = workflows["ray_dockerfile"].replace(
+        '"thrift==0.22.0"',
+        '"thrift==0.16.0"',
+    )
+    failures = _failures(ray_dockerfile=ray_dockerfile)
+    assert any("Dockerfile Thrift pin" in failure for failure in failures)
+
+    ray_dockerfile = workflows["ray_dockerfile"].replace(
+        "'thrift': version('thrift')",
+        "'thrift': 'unmeasured'",
+    )
+    failures = _failures(ray_dockerfile=ray_dockerfile)
+    assert any("must assert the installed Thrift version" in failure for failure in failures)
 
 
 def test_policy_rejects_hidden_artifacts_and_declared_real_runtime() -> None:

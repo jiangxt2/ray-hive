@@ -21,6 +21,7 @@ import pytest
 
 from ray_hive import (
     HiveCancellationError,
+    HiveConfigurationError,
     HiveConnectionOptions,
     HivePlanningError,
     HiveQueryError,
@@ -221,6 +222,26 @@ def test_raw_sql_requires_explicit_schema_and_never_plans_a_driver_query() -> No
     assert len(specs) == 1
     assert resolver_calls == 0
     assert "SELECT 1" not in repr(specs[0])
+
+
+def test_rejected_sql_cannot_reach_planner_connection_resolution() -> None:
+    resolver_calls = 0
+
+    def resolver(driver: str) -> FakeFactory:
+        nonlocal resolver_calls
+        resolver_calls += 1
+        return FakeFactory(FakeRPC(_schema()))
+
+    planner = HivePlanner(resolver)
+
+    def construct_and_plan() -> None:
+        invalid = HiveReadOptions(sql="DROP TABLE db.events")
+        planner.plan(HiveConnectionOptions(host="hs2.example"), invalid)
+
+    with pytest.raises(HiveConfigurationError, match="top-level SELECT"):
+        construct_and_plan()
+
+    assert resolver_calls == 0
 
 
 def test_independent_queries_create_one_query_per_explicit_predicate() -> None:

@@ -15,6 +15,15 @@ The wheel declares `ray[data]>=2.55.1,<2.57` and keeps an exact PyArrow dependen
 only after unit, protocol, real Hive, and Ray cluster evidence exists. Runtime signature checks fail
 closed when the installed Ray DeveloperAPI shape differs.
 
+The complete support/evidence table, unsupported-version request path, API stability policy, and
+maintenance ownership are in the project
+[support policy](https://github.com/jiangxt2/ray-hive/blob/master/SUPPORT.md). Hive 4.0.1 and 3.1.3
+remain targets only; evidence from Hive 4.2.0 does not make them supported profiles.
+
+The stable Python surface includes the top-level facade/types and the built-in `ray_hive.sql`
+builder. Custom `Column` and `Predicate` subclasses are unsupported; the datasource module remains
+a DeveloperAPI.
+
 ## Capability profiles
 
 - Core: strict one-query reads, V6 columnar rowsets, native driver, `max_retries=0`, and verified

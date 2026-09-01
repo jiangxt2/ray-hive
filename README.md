@@ -8,6 +8,8 @@ Metastore.
 The project is currently Alpha. The compatibility target is Python 3.12/3.13, final Ray releases
 `>=2.55.1,<2.57`, PyArrow 19.0.1, and Apache Hive 4.2.0. Production Core status will not be claimed until the real
 Hive, security, network-purity, cancellation, and Ray cluster conformance suites pass.
+See [SUPPORT.md](SUPPORT.md) for evidence levels, API stability, maintenance ownership, and the
+external community support boundary.
 
 ## Install
 
@@ -62,8 +64,18 @@ read = HiveReadOptions(
 )
 ```
 
-Raw SQL and `unsafe_where_sql` are trusted-code escape hatches. They are redacted from object
-representations and default diagnostics, but they are not parameterized authorization boundaries.
+The built-in `ray_hive.sql` builder is part of the stable public API. Only its immutable predicate
+tree is accepted for source pushdown; custom `Column` or `Predicate` subclasses are not supported
+SQL extension points.
+
+Raw SQL accepts one conservatively validated top-level `SELECT`; `WITH`, `EXPLAIN`, DDL, DML,
+comments, unquoted semicolons, Hive variable substitution, and ambiguous quoting or parentheses
+fail during immutable option construction before credential resolution or network access.
+`unsafe_where_sql` is a trusted-code predicate escape hatch, but it is confined to one balanced
+fragment with the same delimiter, comment, substitution, and quoting checks. Both inputs are
+redacted from object representations and default diagnostics. The client-side checks prevent
+submission of DDL, DML, and multiple statements; they do not replace HiveServer2 authorization or
+prove that every UDF or server hook is free of external side effects.
 
 ## Consistency and parallelism
 
@@ -72,6 +84,10 @@ Arrow blocks from that operation. This preserves the single Hive query snapshot,
 and Iceberg semantics supplied by the server. The public facade forces Ray task
 `max_retries=0`; a failure after partial output fails the Dataset instead of replaying and appending
 a second query attempt.
+
+The stable public surface consists of the top-level facade, configuration and error types, plus the
+built-in `ray_hive.sql` predicate builder. Only `read_hive()` carries the strict retry guarantee;
+lower-level extension points are DeveloperAPIs. See `SUPPORT.md` for the compatibility boundary.
 
 HS2 exposes one sequential result stream, so initial source parallelism is one. Blocks can be
 processed in parallel after they enter Ray. Experimental `independent_queries` requires explicit
@@ -87,6 +103,8 @@ predicate pushdown because the supported Ray releases have no partial-residual c
 - TLS certificate verification is enabled whenever TLS is selected, unless a caller explicitly
   disables it.
 - Session configuration is allowlisted.
+- Query-bearing identifiers, literals, raw SQL, and unsafe predicates reject Hive variable
+  substitution because substitution occurs before server parsing.
 - Credentials, full SQL, operation secrets, and row values are excluded from default repr and
   diagnostics.
 - The client does not accept filesystem paths, Hadoop configuration, HMS endpoints, storage

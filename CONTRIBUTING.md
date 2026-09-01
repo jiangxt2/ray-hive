@@ -51,6 +51,11 @@ Do not edit generated TCLIService files. Update the vendored IDL provenance and 
 Every independently verifiable behavior needs a unit or contract test. Protocol and database
 behavior also needs the applicable real infrastructure test.
 
+The stable facade, DeveloperAPI boundary, supported versions, deprecation rules, and release
+ownership are defined in `SUPPORT.md`. Changes that remove a stable API, weaken query-only behavior,
+or permit query replay require an RFC-style design decision and a major-version plan. Raw SQL or
+predicate validation changes require adversarial lexer tests and the final real Hive suite.
+
 ## Release evidence
 
 Pull requests, pushes, and release candidates use `scripts/check_dco.py` as the single DCO

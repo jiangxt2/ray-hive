@@ -21,6 +21,7 @@ import pyarrow as pa
 import pytest
 import ray.data
 
+import ray_hive
 from ray_hive import HiveCompatibilityError, HiveConnectionOptions
 from ray_hive import _api as api_module
 from ray_hive import _compat as compat_module
@@ -156,6 +157,13 @@ def test_datasource_declines_unsafe_optimizer_pushdown() -> None:
     assert datasource.task_specs == (_spec(),)
     with pytest.raises(ValueError, match="at least one"):
         HiveServer2Datasource(())
+
+
+def test_datasource_is_developer_api_and_not_a_top_level_export() -> None:
+    assert "HiveServer2Datasource" not in ray_hive.__all__
+    assert not hasattr(ray_hive, "HiveServer2Datasource")
+    assert HiveServer2Datasource._annotated_type.value == "DeveloperAPI"
+    assert "strict retry guarantee" in (HiveServer2Datasource.__doc__ or "")
 
 
 def test_public_read_facade_plans_then_applies_strict_ray_options(
