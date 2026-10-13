@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ray-hive"
-version = "1.1"
+version = "1.2.dev0"
 description = "A HiveServer2 datasource for Ray Data"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
@@ -22,7 +22,7 @@ classifiers = [
 ]
 dependencies = [
   "pyarrow==19.0.1",
-  "ray[data]>=2.55.1,<2.59",
+  "ray[data]>=2.55.1,<2.60",
   "thrift==0.22.0",
   "typing-extensions>=4.12,<5",
 ]
@@ -57,6 +57,7 @@ packages = ["src/ray_hive"]
 exclude = ["/.artifacts", "/.venv*", "/dist", "/site"]
 
 [tool.pytest.ini_options]
+pythonpath = ["tests"]
 addopts = "--strict-config --strict-markers"
 testpaths = ["tests"]
 markers = [

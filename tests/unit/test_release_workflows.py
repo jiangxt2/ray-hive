@@ -144,7 +144,7 @@ def test_policy_parses_ci_evidence_dependencies_instead_of_matching_body_text() 
 
 def test_policy_requires_every_python_ray_matrix_pair_exactly_once() -> None:
     workflows = _workflows()
-    target = '          - python-version: "3.13"\n            ray-version: "2.58.0"\n'
+    target = '          - python-version: "3.13"\n            ray-version: "2.59.0"\n'
     duplicate = '          - python-version: "3.13"\n            ray-version: "2.57.0"\n'
     assert target in workflows["ci"]
 
@@ -171,17 +171,17 @@ def test_policy_requires_matrix_manifest_and_project_versions_to_stay_aligned() 
     failures = _failures(project=project)
     assert any("project dependency is missing" in failure for failure in failures)
 
-    project = workflows["project"].replace("ray[data]>=2.55.1,<2.59", "ray[data]>=2.55.1,<2.60")
+    project = workflows["project"].replace("ray[data]>=2.55.1,<2.60", "ray[data]>=2.55.1,<2.61")
     failures = _failures(project=project)
     assert any("project dependency is missing" in failure for failure in failures)
 
     compat = workflows["compat"].replace(
-        "_MAX_RAY_VERSION = (2, 59, 0)", "_MAX_RAY_VERSION = (2, 60, 0)"
+        "_MAX_RAY_VERSION = (2, 60, 0)", "_MAX_RAY_VERSION = (2, 61, 0)"
     )
     failures = _failures(compat=compat)
     assert any("compatibility constants" in failure for failure in failures)
 
-    readme = workflows["readme"].replace(">=2.55.1,<2.59", ">=2.55.1,<2.60")
+    readme = workflows["readme"].replace(">=2.55.1,<2.60", ">=2.55.1,<2.61")
     failures = _failures(readme=readme)
     assert any("README must declare" in failure for failure in failures)
 
@@ -193,7 +193,7 @@ def test_policy_requires_matrix_manifest_and_project_versions_to_stay_aligned() 
     assert any("distinguish the Ray window" in failure for failure in failures)
 
     compatibility = workflows["compatibility"].replace(
-        "The\nreal-infrastructure baseline is Ray 2.58.0",
+        "The\nreal-infrastructure baseline is Ray 2.59.0",
         "The infrastructure baseline is unspecified",
     )
     failures = _failures(compatibility=compatibility)
@@ -225,7 +225,7 @@ def test_policy_requires_matrix_manifest_and_project_versions_to_stay_aligned() 
     assert any("must assert the installed Thrift version" in failure for failure in failures)
 
     cluster_runner = workflows["cluster_runner"].replace(
-        "sha256:c3c9573c5c6bfe4127885f79622d6a32064d34cafc7d156ec728aab8657be250",
+        "sha256:0ffca209fb4c984d648db550b8dbe7879bdba3bbb5d96ee5894843cf6ac12eb5",
         "sha256:" + "0" * 64,
     )
     failures = _failures(cluster_runner=cluster_runner)
@@ -233,7 +233,7 @@ def test_policy_requires_matrix_manifest_and_project_versions_to_stay_aligned() 
 
     release = workflows["release"].replace('default: "v1.1"', 'default: "v1.0"')
     failures = _failures(release=release)
-    assert any("defaults must match" in failure for failure in failures)
+    assert any("defaults must identify a formal release example" in failure for failure in failures)
 
 
 def test_policy_rejects_hidden_artifacts_and_declared_real_runtime() -> None:

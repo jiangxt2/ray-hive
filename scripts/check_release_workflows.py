@@ -23,17 +23,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 _ACTION_PIN = re.compile(r"^[0-9a-f]{40}$")
-_PROJECT_VERSION = "1.1"
-_RAY_RANGE = ">=2.55.1,<2.59"
+_PROJECT_VERSION = "1.2.dev0"
+_RELEASE_EXAMPLE_VERSION = "1.1"
+_RAY_RANGE = ">=2.55.1,<2.60"
 _PYTHON_VERSIONS = ("3.12", "3.13")
-_RAY_VERSIONS = ("2.55.1", "2.56.1", "2.57.0", "2.58.0")
+_RAY_VERSIONS = ("2.55.1", "2.56.1", "2.57.0", "2.58.0", "2.59.0")
 _EXPECTED_UNIT_MATRIX = Counter(
     (python_version, ray_version)
     for python_version in _PYTHON_VERSIONS
     for ray_version in _RAY_VERSIONS
 )
-_CLUSTER_RAY_VERSION = "2.58.0"
-_CLUSTER_RAY_DIGEST = "sha256:c3c9573c5c6bfe4127885f79622d6a32064d34cafc7d156ec728aab8657be250"
+_CLUSTER_RAY_VERSION = "2.59.0"
+_CLUSTER_RAY_DIGEST = "sha256:0ffca209fb4c984d648db550b8dbe7879bdba3bbb5d96ee5894843cf6ac12eb5"
 
 
 def _job(workflow: str, job_id: str) -> str:
@@ -202,7 +203,7 @@ def workflow_policy_failures(
         require(requirement in project, f"project dependency is missing {requirement}")
     require(
         f'SUPPORTED_RAY_RANGE = "{_RAY_RANGE}"' in compat
-        and "_MAX_RAY_VERSION = (2, 59, 0)" in compat,
+        and "_MAX_RAY_VERSION = (2, 60, 0)" in compat,
         "runtime compatibility constants must match the project Ray range",
     )
     for name, document in {
@@ -220,7 +221,7 @@ def workflow_policy_failures(
         "SUPPORT must distinguish the Ray window from exact evidence baselines",
     )
     require(
-        "The real-infrastructure baseline is Ray 2.58.0" in normalized_compatibility,
+        "The real-infrastructure baseline is Ray 2.59.0" in normalized_compatibility,
         "compatibility docs must identify the real-infrastructure Ray baseline",
     )
     require(
@@ -291,7 +292,7 @@ def workflow_policy_failures(
     )
     require("if: always()" in hive_job, "Hive workflow must preserve logs on failure")
 
-    cluster_job = _job(cluster, "ray-2580-cluster")
+    cluster_job = _job(cluster, "ray-2590-cluster")
     require("workflow_call:" in cluster, "Ray cluster workflow must retain workflow_call")
     require(
         "--profile ray-cluster" in cluster_job,
@@ -339,7 +340,7 @@ def workflow_policy_failures(
     require(
         f"Ray {_CLUSTER_RAY_VERSION} multi-node cluster" in cluster_job
         and _CLUSTER_RAY_DIGEST in cluster_job
-        and "ray-2580-cluster-${{ github.run_id }}-${{ github.run_attempt }}" in cluster_job,
+        and "ray-2590-cluster-${{ github.run_id }}-${{ github.run_attempt }}" in cluster_job,
         "Ray cluster workflow must use the current Ray identity",
     )
     require("if: always()" in cluster_job, "Ray cluster workflow must preserve logs on failure")
@@ -347,10 +348,10 @@ def workflow_policy_failures(
     require('tags: ["v*"]' in release, "Release must trigger on version tags")
     require("workflow_dispatch:" in release, "Release must support candidate dry runs")
     require(
-        f"for example {_PROJECT_VERSION}" in release
-        and f"for example v{_PROJECT_VERSION}" in release
-        and f'default: "v{_PROJECT_VERSION}"' in release,
-        "Release workflow defaults must match the project version",
+        f"for example {_RELEASE_EXAMPLE_VERSION}" in release
+        and f"for example v{_RELEASE_EXAMPLE_VERSION}" in release
+        and f'default: "v{_RELEASE_EXAMPLE_VERSION}"' in release,
+        "Release workflow defaults must identify a formal release example",
     )
     candidate = _job(release, "candidate")
     evidence = _job(release, "evidence")

@@ -23,6 +23,11 @@ import tomllib
 from collections.abc import Sequence
 from pathlib import Path
 
+if __package__:
+    from scripts.check_release import formal_version
+else:
+    from check_release import formal_version
+
 
 def _git(*arguments: str) -> str:
     result = subprocess.run(  # noqa: S603 -- executable and arguments are fixed/local.
@@ -101,6 +106,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
     version = project.get("version")
     if name != "ray-hive" or not isinstance(version, str):
         raise SystemExit("candidate package identity is not ray-hive")
+    version = formal_version(version)
     if options.expected_version and version != options.expected_version:
         raise SystemExit(f"candidate version {version!r} does not match expected version")
 

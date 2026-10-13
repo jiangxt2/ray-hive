@@ -26,10 +26,10 @@ import pyarrow as pa
 
 from ray_hive._errors import HiveCompatibilityError
 
-SUPPORTED_RAY_RANGE = ">=2.55.1,<2.59"
+SUPPORTED_RAY_RANGE = ">=2.55.1,<2.60"
 SUPPORTED_PYARROW_VERSION = "19.0.1"
 _MIN_RAY_VERSION = (2, 55, 1)
-_MAX_RAY_VERSION = (2, 59, 0)
+_MAX_RAY_VERSION = (2, 60, 0)
 _FINAL_RAY_RELEASE = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:\+[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*)?$")
 _READ_TASK_PARAMETERS = ("self", "read_fn", "metadata", "schema", "per_task_row_limit")
 _GET_READ_TASKS_PARAMETERS = (

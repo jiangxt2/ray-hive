@@ -29,12 +29,16 @@ LITERAL = re.compile(
 SCANNED_SUFFIXES = {".py", ".md", ".toml", ".yml", ".yaml"}
 
 
+def formal_version(value: object) -> str:
+    """Require the canonical two-component identity of a formal release."""
+    if not isinstance(value, str) or re.fullmatch(r"[1-9][0-9]*\.(?:0|[1-9][0-9]*)", value) is None:
+        raise SystemExit("Formal version must use canonical major.minor components")
+    return value
+
+
 def _package_version() -> str:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
-    version = project["version"]
-    if not isinstance(version, str):
-        raise SystemExit("Project version must be a string")
-    return version
+    return formal_version(project["version"])
 
 
 def _scan_credentials() -> None:

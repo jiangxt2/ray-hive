@@ -6,12 +6,16 @@ through the HS2 endpoint; they do not read HDFS, object storage, table manifests
 Metastore.
 
 The project is currently Alpha. The compatibility target is Python 3.12/3.13, final Ray releases
-`>=2.55.1,<2.59`, PyArrow 19.0.1, and Apache Hive 4.2.0. Production Core status will not be claimed until the real
+`>=2.55.1,<2.60`, PyArrow 19.0.1, and Apache Hive 4.2.0. Production Core status will not be claimed until the real
 Hive, security, network-purity, cancellation, and Ray cluster conformance suites pass.
 See [SUPPORT.md](SUPPORT.md) for evidence levels, API stability, maintenance ownership, and the
 external community support boundary.
 
 ## Install
+
+Development checkouts on `master` declare `1.2.dev0`; the latest published release is
+`1.1`. Package-index installations use published distributions. The development version
+does not select the next formal release version.
 
 ```bash
 pip install ray-hive

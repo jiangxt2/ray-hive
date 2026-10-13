@@ -58,6 +58,12 @@ predicate validation changes require adversarial lexer tests and the final real 
 
 ## Release evidence
 
+`master` uses `1.2.dev0` for development. Formal releases use two components,
+`major.minor`, and require an explicitly reviewed source revision with matching package
+metadata, `v<version>` tag, and versioned release notes. Candidate and tag validation
+reject development versions. Historical release notes and workflow examples retain their
+formal identities; a development version does not select the next formal release.
+
 Pull requests, pushes, and release candidates use `scripts/check_dco.py` as the single DCO
 validator. CI, Hive integration, and Ray cluster workflows upload separate successful evidence
 manifests bound to the tested commit and workflow run. The release workflow selects exactly one
