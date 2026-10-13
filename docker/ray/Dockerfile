@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG RAY_BASE_IMAGE=ray-hive-ray-base:2.58.0
+ARG RAY_BASE_IMAGE=ray-hive-ray-base:2.59.0
 FROM ${RAY_BASE_IMAGE}
 
 WORKDIR /workspace/ray-hive
@@ -29,4 +29,4 @@ RUN python -m pip install --no-cache-dir \
       "thrift==0.22.0" \
       "typing-extensions>=4.12,<5" \
     && python -m pip install --no-cache-dir --no-deps -e . \
-    && python -c "import platform; from importlib.metadata import version; actual = {'python': platform.python_version(), 'ray': version('ray'), 'pyarrow': version('pyarrow'), 'thrift': version('thrift')}; expected = {'ray': '2.58.0', 'pyarrow': '19.0.1', 'thrift': '0.22.0'}; print('ray-hive cluster runtime:', actual); assert actual['python'].split('.')[:2] == ['3', '12']; assert {name: actual[name] for name in expected} == expected"
+    && python -c "import platform; from importlib.metadata import version; actual = {'python': platform.python_version(), 'ray': version('ray'), 'pyarrow': version('pyarrow'), 'thrift': version('thrift')}; expected = {'ray': '2.59.0', 'pyarrow': '19.0.1', 'thrift': '0.22.0'}; print('ray-hive cluster runtime:', actual); assert actual['python'].split('.')[:2] == ['3', '12']; assert {name: actual[name] for name in expected} == expected"

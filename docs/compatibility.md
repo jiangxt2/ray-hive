@@ -5,15 +5,15 @@ The package maintains a bounded, explicitly exercised Python client stack:
 | Component | Initial baseline | Current claim |
 |---|---:|---|
 | Python | 3.12, 3.13 | Package and static/unit matrix |
-| Ray | 2.55.1, 2.56.1, 2.57.0, 2.58.0 | Bounded final-release window and explicit API/signature contract |
+| Ray | 2.55.1, 2.56.1, 2.57.0, 2.58.0, 2.59.0 | Bounded final-release window and explicit API/signature contract |
 | PyArrow | 19.0.1 | Exact decoder and Ray block contract |
 | Apache Hive | 4.2.0 | Primary real-infrastructure target |
 | Apache Hive | 4.0.1 | Compatibility target; no inference from 4.2.0 |
 | Apache Hive | 3.1.3 | Legacy target; Hive 3.x is end-of-life |
 
-The wheel declares `ray[data]>=2.55.1,<2.59` and keeps an exact PyArrow dependency. Exact CI
-baselines cover Ray 2.55.1, 2.56.1, 2.57.0, and 2.58.0 on Python 3.12 and 3.13. The
-real-infrastructure baseline is Ray 2.58.0 with Hive 4.2.0; the project does not repeat the complete
+The wheel declares `ray[data]>=2.55.1,<2.60` and keeps an exact PyArrow dependency. Exact CI
+baselines cover Ray 2.55.1, 2.56.1, 2.57.0, 2.58.0, and 2.59.0 on Python 3.12 and 3.13. The
+real-infrastructure baseline is Ray 2.59.0 with Hive 4.2.0; the project does not repeat the complete
 Hive and cluster suites for every admitted minor.
 
 A final patch release within an admitted minor is included in the bounded compatibility window if

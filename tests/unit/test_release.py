@@ -20,8 +20,51 @@ import sys
 import tarfile
 import zipfile
 from pathlib import Path
+from unittest.mock import Mock
+
+import pytest
+
+from scripts import check_release, validate_release_candidate
 
 PROJECT_VERSION = "1.1"
+
+
+@pytest.mark.parametrize("version", ["1.0", "1.1", "1.10", "2.0"])
+def test_formal_versions_keep_two_component_route(version: str) -> None:
+    assert check_release.formal_version(version) == version
+
+
+@pytest.mark.parametrize("version", ["1.2.dev0", "1.2rc1", "1.2.0", "01.2", 12])
+def test_formal_versions_reject_development_and_noncanonical_identities(version: object) -> None:
+    with pytest.raises(SystemExit, match=r"canonical major\.minor"):
+        check_release.formal_version(version)
+
+
+def test_tag_validator_rejects_development_metadata(monkeypatch, tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text('[project]\nversion = "1.2.dev0"\n')
+    monkeypatch.setattr(check_release, "ROOT", tmp_path)
+    with pytest.raises(SystemExit, match=r"canonical major\.minor"):
+        check_release._package_version()
+
+
+@pytest.mark.parametrize("mode", ["dry-run", "tag"])
+@pytest.mark.parametrize("version", ["1.2.dev0", "1.2"])
+def test_candidate_version_gate(monkeypatch, version: str, mode: str) -> None:
+    monkeypatch.setattr(validate_release_candidate, "_resolve", lambda _: "a" * 40)
+    monkeypatch.setattr(validate_release_candidate, "_git_succeeds", lambda *_: True)
+    monkeypatch.setattr(
+        validate_release_candidate, "_project", lambda _: {"name": "ray-hive", "version": version}
+    )
+    notes = Mock(return_value=True)
+    monkeypatch.setattr(validate_release_candidate, "_tree_file_exists", notes)
+    arguments = ["--mode", mode, "--candidate-ref", "a" * 40, "--event-created", "true"]
+    if version.endswith(".dev0"):
+        with pytest.raises(SystemExit, match=r"canonical major\.minor"):
+            validate_release_candidate.main(arguments)
+        notes.assert_not_called()
+    else:
+        assert validate_release_candidate.main(arguments) == 0
+        notes.assert_called_once_with("a" * 40, "release-notes/v1.2.md")
 
 
 def _run_validator(root: Path, *arguments: str) -> None:
