@@ -24,7 +24,7 @@ on:
         required: true
         type: string
       expected_version:
-        description: "Expected project version, for example 1.1"
+        description: "Expected project version, for example 1.2"
         required: true
         type: string
       formal_publish:
@@ -33,9 +33,9 @@ on:
         default: false
         type: boolean
       release_tag:
-        description: "Existing annotated tag to publish, for example v1.1"
+        description: "Existing annotated tag to publish, for example v1.2"
         required: true
-        default: "v1.1"
+        default: "v1.2"
         type: string
 
 permissions:

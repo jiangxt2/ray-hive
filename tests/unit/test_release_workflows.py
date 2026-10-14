@@ -41,7 +41,7 @@ def _workflows() -> dict[str, str]:
         "compatibility": (ROOT / "docs/compatibility.md").read_text(encoding="utf-8"),
         "docs_index": (ROOT / "docs/index.md").read_text(encoding="utf-8"),
         "changelog": (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"),
-        "release_notes": (ROOT / "release-notes/v1.1.md").read_text(encoding="utf-8"),
+        "release_notes": (ROOT / "release-notes/v1.2.md").read_text(encoding="utf-8"),
     }
 
 
@@ -53,6 +53,45 @@ def _failures(**changes: str) -> tuple[str, ...]:
 
 def test_current_workflows_satisfy_release_evidence_policy() -> None:
     assert _failures() == ()
+
+
+@pytest.mark.parametrize("version", ["1.2", "1.2.dev0", "1.3.dev0"])
+def test_policy_accepts_formal_candidate_and_development_metadata(version: str) -> None:
+    project = _workflows()["project"].replace('version = "1.2"', f'version = "{version}"', 1)
+
+    assert _failures(project=project) == ()
+
+
+def test_policy_rejects_formal_version_that_differs_from_release_tag() -> None:
+    project = _workflows()["project"].replace('version = "1.2"', 'version = "1.1"', 1)
+
+    failures = _failures(project=project)
+
+    assert any("formal project version must match" in failure for failure in failures)
+
+
+def test_policy_rejects_static_candidate_version_output() -> None:
+    release = _workflows()["release"].replace(
+        "version: ${{ steps.validate.outputs.version }}",
+        'version: "1.2"',
+        1,
+    )
+
+    failures = _failures(release=release)
+
+    assert any("validated project version" in failure for failure in failures)
+
+
+def test_policy_rejects_hardcoded_testpypi_smoke_version() -> None:
+    release = _workflows()["release"].replace(
+        "VERSION: ${{ needs.candidate.outputs.version }}",
+        'VERSION: "1.2"',
+        1,
+    )
+
+    failures = _failures(release=release)
+
+    assert any("testpypi-smoke must use" in failure for failure in failures)
 
 
 @pytest.mark.parametrize(
@@ -200,13 +239,13 @@ def test_policy_requires_matrix_manifest_and_project_versions_to_stay_aligned() 
     assert any("real-infrastructure Ray baseline" in failure for failure in failures)
 
     changelog = workflows["changelog"].replace(
-        "[ray-hive 1.1 release notes](release-notes/v1.1.md)",
+        "[ray-hive 1.2 release notes](release-notes/v1.2.md)",
         "missing release notes",
     )
     failures = _failures(changelog=changelog)
     assert any("CHANGELOG must link" in failure for failure in failures)
 
-    release_notes = workflows["release_notes"].replace("# ray-hive 1.1", "# wrong version")
+    release_notes = workflows["release_notes"].replace("# ray-hive 1.2", "# wrong version")
     failures = _failures(release_notes=release_notes)
     assert any("release notes are missing" in failure for failure in failures)
 
@@ -231,7 +270,7 @@ def test_policy_requires_matrix_manifest_and_project_versions_to_stay_aligned() 
     failures = _failures(cluster_runner=cluster_runner)
     assert any("pinned current Ray image" in failure for failure in failures)
 
-    release = workflows["release"].replace('default: "v1.1"', 'default: "v1.0"')
+    release = workflows["release"].replace('default: "v1.2"', 'default: "v1.0"')
     failures = _failures(release=release)
     assert any("defaults must identify a formal release example" in failure for failure in failures)
 

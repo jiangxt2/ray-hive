@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ray-hive"
-version = "1.2.dev0"
+version = "1.2"
 description = "A HiveServer2 datasource for Ray Data"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
