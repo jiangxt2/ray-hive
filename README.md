@@ -13,9 +13,9 @@ external community support boundary.
 
 ## Install
 
-Development checkouts on `master` declare `1.2.dev0`; the latest published release is
-`1.1`. Package-index installations use published distributions. The development version
-does not select the next formal release version.
+This source builds `ray-hive` 1.2. Package-index installations use the latest
+published distribution; source checkouts use the version and compatibility matrix
+declared in this repository.
 
 ```bash
 pip install ray-hive

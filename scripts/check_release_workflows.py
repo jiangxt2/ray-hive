@@ -23,8 +23,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 _ACTION_PIN = re.compile(r"^[0-9a-f]{40}$")
-_PROJECT_VERSION = "1.2.dev0"
-_RELEASE_EXAMPLE_VERSION = "1.1"
+_CANONICAL_PROJECT_VERSION = re.compile(
+    r"(?m)^version = \"(?P<version>[1-9][0-9]*\.(?:0|[1-9][0-9]*)(?:\.dev0)?)\"$"
+)
+_RELEASE_TAG_VERSION = re.compile(
+    r"(?m)^        default: \"v(?P<version>[1-9][0-9]*\.(?:0|[1-9][0-9]*))\"$"
+)
 _RAY_RANGE = ">=2.55.1,<2.60"
 _PYTHON_VERSIONS = ("3.12", "3.13")
 _RAY_VERSIONS = ("2.55.1", "2.56.1", "2.57.0", "2.58.0", "2.59.0")
@@ -104,6 +108,18 @@ def _matrix_include_pairs(job: str) -> tuple[tuple[str, str], ...]:
 
 def _normalized_text(source: str) -> str:
     return " ".join(source.split())
+
+
+def _project_version(project: str) -> str | None:
+    """Return a canonical formal or development project version."""
+    match = _CANONICAL_PROJECT_VERSION.search(project)
+    return None if match is None else match.group("version")
+
+
+def _formal_release_version(release: str) -> str | None:
+    """Read the current release identity from the workflow recovery tag."""
+    match = _RELEASE_TAG_VERSION.search(release)
+    return None if match is None else match.group("version")
 
 
 def workflow_policy_failures(
@@ -193,8 +209,26 @@ def workflow_policy_failures(
             f"--ray-version {ray_version}" in ci_evidence,
             f"CI evidence must record Ray {ray_version}",
         )
+    project_version = _project_version(project)
+    release_version = _formal_release_version(release)
+    require(
+        project_version is not None,
+        "project version must use canonical major.minor or major.minor.dev0",
+    )
+    require(
+        release_version is not None,
+        "release workflow must default to a canonical existing release tag",
+    )
+    if (
+        project_version is not None
+        and release_version is not None
+        and not project_version.endswith(".dev0")
+    ):
+        require(
+            project_version == release_version,
+            "formal project version must match the release workflow tag",
+        )
     for requirement in (
-        f'version = "{_PROJECT_VERSION}"',
         'requires-python = ">=3.12,<3.14"',
         '"pyarrow==19.0.1"',
         f'"ray[data]{_RAY_RANGE}"',
@@ -224,11 +258,16 @@ def workflow_policy_failures(
         "The real-infrastructure baseline is Ray 2.59.0" in normalized_compatibility,
         "compatibility docs must identify the real-infrastructure Ray baseline",
     )
-    require(
-        "[ray-hive 1.1 release notes](release-notes/v1.1.md)" in changelog,
-        "CHANGELOG must link to the 1.1 release notes",
-    )
-    require("# ray-hive 1.1" in release_notes, "1.1 release notes are missing their identity")
+    if release_version is not None:
+        require(
+            f"[ray-hive {release_version} release notes](release-notes/v{release_version}.md)"
+            in changelog,
+            f"CHANGELOG must link to the {release_version} release notes",
+        )
+        require(
+            f"# ray-hive {release_version}" in release_notes,
+            f"{release_version} release notes are missing their identity",
+        )
     project_thrift = _exact_dependency(project, "thrift")
     docker_thrift = _exact_dependency(ray_dockerfile, "thrift")
     require(
@@ -348,9 +387,10 @@ def workflow_policy_failures(
     require('tags: ["v*"]' in release, "Release must trigger on version tags")
     require("workflow_dispatch:" in release, "Release must support candidate dry runs")
     require(
-        f"for example {_RELEASE_EXAMPLE_VERSION}" in release
-        and f"for example v{_RELEASE_EXAMPLE_VERSION}" in release
-        and f'default: "v{_RELEASE_EXAMPLE_VERSION}"' in release,
+        release_version is not None
+        and f"for example {release_version}" in release
+        and f"for example v{release_version}" in release
+        and f'default: "v{release_version}"' in release,
         "Release workflow defaults must identify a formal release example",
     )
     candidate = _job(release, "candidate")
@@ -437,15 +477,21 @@ def workflow_policy_failures(
 
 
 def main() -> int:
+    release_text = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    release_version = _formal_release_version(release_text)
+    if release_version is None:
+        print("release workflow must default to a canonical existing release tag")
+        return 1
+    project_text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     failures = workflow_policy_failures(
         ci=(ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"),
         hive=(ROOT / ".github/workflows/hive-integration.yml").read_text(encoding="utf-8"),
         cluster=(ROOT / ".github/workflows/ray-cluster-integration.yml").read_text(
             encoding="utf-8"
         ),
-        release=(ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8"),
+        release=release_text,
         precommit=(ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8"),
-        project=(ROOT / "pyproject.toml").read_text(encoding="utf-8"),
+        project=project_text,
         compat=(ROOT / "src/ray_hive/_compat.py").read_text(encoding="utf-8"),
         ray_dockerfile=(ROOT / "docker/ray/Dockerfile").read_text(encoding="utf-8"),
         cluster_runner=(ROOT / "scripts/run_ray_cluster_it.sh").read_text(encoding="utf-8"),
@@ -454,7 +500,7 @@ def main() -> int:
         compatibility=(ROOT / "docs/compatibility.md").read_text(encoding="utf-8"),
         docs_index=(ROOT / "docs/index.md").read_text(encoding="utf-8"),
         changelog=(ROOT / "CHANGELOG.md").read_text(encoding="utf-8"),
-        release_notes=(ROOT / "release-notes/v1.1.md").read_text(encoding="utf-8"),
+        release_notes=(ROOT / f"release-notes/v{release_version}.md").read_text(encoding="utf-8"),
     )
     for failure in failures:
         print(failure)

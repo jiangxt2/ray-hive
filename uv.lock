@@ -1012,7 +1012,7 @@ data = [
 
 [[package]]
 name = "ray-hive"
-version = "1.2.dev0"
+version = "1.2"
 source = { editable = "." }
 dependencies = [
     { name = "pyarrow" },

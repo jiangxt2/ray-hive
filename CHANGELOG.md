@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## 1.2
+
+- See the [ray-hive 1.2 release notes](release-notes/v1.2.md).
+
 ## 1.1
 
 - See the [ray-hive 1.1 release notes](release-notes/v1.1.md).
