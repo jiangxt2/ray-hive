@@ -70,6 +70,30 @@ def test_policy_rejects_formal_version_that_differs_from_release_tag() -> None:
     assert any("formal project version must match" in failure for failure in failures)
 
 
+def test_policy_rejects_static_candidate_version_output() -> None:
+    release = _workflows()["release"].replace(
+        "version: ${{ steps.validate.outputs.version }}",
+        'version: "1.2"',
+        1,
+    )
+
+    failures = _failures(release=release)
+
+    assert any("validated project version" in failure for failure in failures)
+
+
+def test_policy_rejects_hardcoded_testpypi_smoke_version() -> None:
+    release = _workflows()["release"].replace(
+        "VERSION: ${{ needs.candidate.outputs.version }}",
+        'VERSION: "1.2"',
+        1,
+    )
+
+    failures = _failures(release=release)
+
+    assert any("testpypi-smoke must use" in failure for failure in failures)
+
+
 @pytest.mark.parametrize(
     ("field", "old", "new", "message"),
     [

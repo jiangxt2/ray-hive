@@ -396,6 +396,23 @@ def workflow_policy_failures(
     candidate = _job(release, "candidate")
     evidence = _job(release, "evidence")
     build = _job(release, "build")
+    require(
+        "version: ${{ steps.validate.outputs.version }}" in candidate
+        and "scripts/validate_release_candidate.py" in candidate
+        and '--expected-version "${EXPECTED_VERSION}"' in candidate,
+        "candidate job must expose the validated project version",
+    )
+    version_consumers = {
+        "build": '--version "${{ needs.candidate.outputs.version }}"',
+        "testpypi-publish": '--version "${{ needs.candidate.outputs.version }}"',
+        "testpypi-smoke": "VERSION: ${{ needs.candidate.outputs.version }}",
+        "github-release": '--notes-file "release-notes/v${{ needs.candidate.outputs.version }}.md"',
+    }
+    for job_id, version_reference in version_consumers.items():
+        require(
+            version_reference in _job(release, job_id),
+            f"{job_id} must use the validated candidate version",
+        )
     require("fetch-depth: 0" in candidate, "Release candidate must fetch full history")
     require("scripts/check_dco.py" in candidate, "Release candidate must use shared DCO checker")
     for workflow in ("ci.yml", "hive-integration.yml", "ray-cluster-integration.yml"):
